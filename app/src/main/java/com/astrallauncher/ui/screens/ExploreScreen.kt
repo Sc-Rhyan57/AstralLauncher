@@ -31,12 +31,17 @@ fun ExploreScreen(vm: MainViewModel) {
     var query by remember { mutableStateOf("") }
     var detail by remember { mutableStateOf<ModEntry?>(null) }
 
-    val filtered = mods.filter { query.isBlank() || it.name.contains(query, true) || it.author.contains(query, true) || it.tags.any { t -> t.contains(query, true) } }
+    val filtered = mods.filter {
+        query.isBlank() || it.name.contains(query, true) || it.author.contains(query, true) || it.tags.any { t -> t.contains(query, true) }
+    }
     val trending = mods.sortedByDescending { it.downloads }.take(5)
 
     if (detail != null) {
-        ModDetail(mod = detail!!, isInstalled = installed.any { it.id == detail!!.id }, progress = progress[detail!!.id],
-            onInstall = { vm.downloadAndInstall(detail!!) }, onBack = { detail = null })
+        ModDetail(
+            mod = detail!!, isInstalled = installed.any { it.id == detail!!.id },
+            progress = progress[detail!!.id],
+            onInstall = { vm.downloadAndInstall(detail!!) }, onBack = { detail = null }
+        )
         return
     }
 
@@ -48,15 +53,21 @@ fun ExploreScreen(vm: MainViewModel) {
             }
         }
         item {
-            OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Search mods...", color = AL.Muted) }, leadingIcon = { Icon(Icons.Outlined.Search, null, tint = AL.Muted) },
+            OutlinedTextField(
+                value = query, onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                placeholder = { Text("Search mods...", color = AL.Muted) },
+                leadingIcon = { Icon(Icons.Outlined.Search, null, tint = AL.Muted) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, null, tint = AL.Muted) } },
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AL.Gold, unfocusedBorderColor = AL.Border, focusedTextColor = AL.White, unfocusedTextColor = AL.White, cursorColor = AL.Gold),
-                shape = RoundedCornerShape(14.dp), singleLine = true)
+                shape = RoundedCornerShape(14.dp), singleLine = true
+            )
         }
-        if (loading) item { Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AL.Gold) } }
-        else if (error != null) item { EmptyState(Icons.Outlined.SignalWifiOff, "Could not load mods", error ?: "Check connection", action = { GoldButton("Retry", { vm.fetchMods() }) }) }
-        else {
+        if (loading) {
+            item { Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AL.Gold) } }
+        } else if (error != null) {
+            item { EmptyState(Icons.Outlined.WifiOff, "Could not load mods", error ?: "Check connection", action = { GoldButton("Retry", { vm.fetchMods() }) }) }
+        } else {
             if (query.isEmpty() && trending.isNotEmpty()) {
                 item { SectionHeader("Trending") }
                 item {
@@ -66,16 +77,23 @@ fun ExploreScreen(vm: MainViewModel) {
                 }
                 item { Spacer(Modifier.height(8.dp)); SectionHeader("All Mods") }
             }
-            if (filtered.isEmpty()) item { EmptyState(Icons.Outlined.ManageSearch, "No results", "Try a different search") }
-            else items(filtered) { mod -> ModRow2(mod, installed.any { it.id == mod.id }, progress[mod.id], { vm.downloadAndInstall(mod) }) { detail = mod } }
+            if (filtered.isEmpty()) {
+                item { EmptyState(Icons.Outlined.Search, "No results", "Try a different search") }
+            } else {
+                items(filtered) { mod ->
+                    ModRow2(mod, installed.any { it.id == mod.id }, progress[mod.id], { vm.downloadAndInstall(mod) }) { detail = mod }
+                }
+            }
         }
     }
 }
 
 @Composable
 fun TrendCard(mod: ModEntry, onClick: () -> Unit) {
-    Box(Modifier.width(155.dp).height(95.dp).clip(RoundedCornerShape(14.dp)).background(AL.Surface)
-        .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).clickable { onClick() }) {
+    Box(
+        Modifier.width(155.dp).height(95.dp).clip(RoundedCornerShape(14.dp)).background(AL.Surface)
+            .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).clickable { onClick() }
+    ) {
         if (mod.banner.isNotEmpty()) {
             AsyncImage(mod.banner, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(AL.Bg.copy(0f), AL.Bg.copy(0.9f)))))
@@ -89,13 +107,20 @@ fun TrendCard(mod: ModEntry, onClick: () -> Unit) {
 
 @Composable
 fun ModRow2(mod: ModEntry, installed: Boolean, progress: Int?, onInstall: () -> Unit, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp))
-        .background(AL.BgCard).border(BorderStroke(0.5.dp, if (installed) AL.GoldDark.copy(0.5f) else AL.Border), RoundedCornerShape(14.dp))
-        .clickable { onClick() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp))
+            .background(AL.BgCard)
+            .border(BorderStroke(0.5.dp, if (installed) AL.GoldDark.copy(0.5f) else AL.Border), RoundedCornerShape(14.dp))
+            .clickable { onClick() }.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(Modifier.size(50.dp).clip(RoundedCornerShape(12.dp)).background(AL.Surface)) {
-            if (mod.icon.isNotEmpty()) AsyncImage(mod.icon, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            else Box(Modifier.fillMaxSize().background(AL.GoldBg), contentAlignment = Alignment.Center) {
-                Text(mod.name.firstOrNull()?.toString() ?: "?", color = AL.Gold, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            if (mod.icon.isNotEmpty()) {
+                AsyncImage(mod.icon, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            } else {
+                Box(Modifier.fillMaxSize().background(AL.GoldBg), contentAlignment = Alignment.Center) {
+                    Text(mod.name.firstOrNull()?.toString() ?: "?", color = AL.Gold, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                }
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -104,17 +129,21 @@ fun ModRow2(mod: ModEntry, installed: Boolean, progress: Int?, onInstall: () -> 
             Text(mod.author, color = AL.Gold, fontSize = 11.sp)
             Text(mod.shortDescription.ifEmpty { mod.description }, color = AL.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(Modifier.padding(top = 3.dp)) {
-                Icon(Icons.Outlined.GetApp, null, tint = AL.Muted, modifier = Modifier.size(12.dp))
+                Icon(Icons.Outlined.Download, null, tint = AL.Muted, modifier = Modifier.size(12.dp))
                 Text(" ${mod.downloads}", color = AL.Muted, fontSize = 11.sp)
                 Spacer(Modifier.width(6.dp))
                 mod.tags.take(2).forEach { StatusChip(it, AL.Purple); Spacer(Modifier.width(4.dp)) }
             }
         }
         Spacer(Modifier.width(8.dp))
-        if (progress != null) CircularProgressIndicator(progress = { progress / 100f }, modifier = Modifier.size(32.dp), color = AL.Gold, strokeWidth = 3.dp)
-        else if (installed) StatusChip("✓", AL.Success)
-        else IconButton(onClick = onInstall, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg)) {
-            Icon(Icons.Outlined.GetApp, null, tint = AL.Gold, modifier = Modifier.size(18.dp))
+        if (progress != null) {
+            CircularProgressIndicator(progress = { progress / 100f }, modifier = Modifier.size(32.dp), color = AL.Gold, strokeWidth = 3.dp)
+        } else if (installed) {
+            StatusChip("✓", AL.Success)
+        } else {
+            IconButton(onClick = onInstall, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg)) {
+                Icon(Icons.Outlined.Download, null, tint = AL.Gold, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
@@ -132,7 +161,9 @@ fun ModDetail(mod: ModEntry, isInstalled: Boolean, progress: Int?, onInstall: ()
                         Text("✦", color = AL.Gold.copy(0.2f), fontSize = 80.sp)
                     }
                 }
-                IconButton(onClick = onBack, modifier = Modifier.padding(12.dp)) { Icon(Icons.Outlined.ArrowBack, null, tint = AL.White) }
+                IconButton(onClick = onBack, modifier = Modifier.padding(12.dp)) {
+                    Icon(Icons.Outlined.ArrowBack, null, tint = AL.White)
+                }
             }
         }
         item {
@@ -163,7 +194,7 @@ fun ModDetail(mod: ModEntry, isInstalled: Boolean, progress: Int?, onInstall: ()
                         Spacer(Modifier.height(8.dp)); Text("Downloading $progress%", color = AL.Muted, fontSize = 13.sp)
                     }
                     isInstalled -> StatusChip("✓ Installed", AL.Success)
-                    else -> GoldButton("Install", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.GetApp)
+                    else -> GoldButton("Install", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Download)
                 }
                 if (mod.changelog.isNotEmpty()) {
                     Spacer(Modifier.height(20.dp)); GoldDivider(); Spacer(Modifier.height(14.dp))
