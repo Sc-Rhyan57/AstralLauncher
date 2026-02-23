@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.astrallauncher"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
@@ -20,15 +20,13 @@ android {
         create("release") {
             storeFile = file("keystore.jks")
             storePassword = System.getenv("KEY_PASSWORD") ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: "astral"
             keyPassword = System.getenv("KEY_PASSWORD") ?: ""
         }
     }
 
     buildTypes {
-        debug {
-            applicationIdSuffix = ".debug"
-        }
+        debug { applicationIdSuffix = ".debug" }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -41,18 +39,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
 
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.11"
-    }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.11" }
 
     packaging {
         resources {
@@ -83,6 +77,4 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.github.topjohnwu.libsu:core:5.2.1")
 }
