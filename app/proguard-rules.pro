@@ -1,5 +1,3 @@
 -keep class com.astrallauncher.model.** { *; }
--keep class com.astrallauncher.bridge.** { *; }
--keepattributes *Annotation*
--dontwarn okhttp3.**
--dontwarn kotlin.**
+-keep class com.astrallauncher.util.** { *; }
+-dontwarn org.apache.commons.**
