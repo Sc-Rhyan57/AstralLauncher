@@ -46,11 +46,13 @@ fun HomeScreen(vm: MainViewModel) {
         item { HeroCard(auVer = auVer, patchedVer = patchedVer, patchedInstalled = patchedInstalled) }
 
         item {
-            PatchCard(patch = patch, mods = mods, overlay = overlay, auInstalled = auInstalled,
+            PatchCard(
+                patch = patch, mods = mods, overlay = overlay, auInstalled = auInstalled,
                 onPatch = { vm.patchAndInstall() },
                 onLaunch = { if (!vm.hasOverlay()) vm.requestOverlay(ctx); vm.launchGame() },
                 onStopOverlay = { vm.stopOverlay() },
-                onReset = { vm.resetPatch() })
+                onReset = { vm.resetPatch() }
+            )
         }
 
         item {
@@ -58,13 +60,13 @@ fun HomeScreen(vm: MainViewModel) {
                 SectionHeader(if (mods.isEmpty()) "No mods installed" else "Installed Mods", action = if (mods.isNotEmpty()) "${mods.size}" else null)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { apkPicker.launch("application/vnd.android.package-archive") }) {
-                    Icon(Icons.Outlined.Upload, "Install APK", tint = AL.Muted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.ArrowUpward, "Install APK", tint = AL.Muted, modifier = Modifier.size(20.dp))
                 }
             }
         }
 
         if (mods.isEmpty()) {
-            item { EmptyState(Icons.Outlined.Widgets, "No mods yet", "Go to Explore to install mods, or tap ↑ to sideload an APK") }
+            item { EmptyState(Icons.Outlined.Apps, "No mods yet", "Go to Explore to install mods, or tap ↑ to sideload an APK") }
         } else {
             items(mods) { mod -> ModRow(mod, onToggle = { vm.toggleMod(mod.id) }, onDelete = { vm.deleteMod(mod.id) }) }
         }
@@ -72,9 +74,12 @@ fun HomeScreen(vm: MainViewModel) {
         item {
             status?.let { s ->
                 Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp))
-                    .background(AL.GoldBg).border(BorderStroke(0.5.dp, AL.GoldDark.copy(0.5f)), RoundedCornerShape(12.dp)).padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(12.dp)).background(AL.GoldBg)
+                        .border(BorderStroke(0.5.dp, AL.GoldDark.copy(0.5f)), RoundedCornerShape(12.dp)).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(Icons.Outlined.Info, null, tint = AL.Gold, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(s, color = AL.GoldLight, fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -92,9 +97,11 @@ fun HeroCard(auVer: String, patchedVer: String, patchedInstalled: Boolean) {
     val t = rememberInfiniteTransition(label = "h")
     val glow by t.animateFloat(0.2f, 0.8f, infiniteRepeatable(tween(2200, easing = EaseInOutSine), RepeatMode.Reverse), label = "g")
 
-    Box(modifier = Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp))
-        .background(Brush.verticalGradient(listOf(AL.GoldBg, Color(0xFF0A0A0A))))
-        .border(BorderStroke(1.dp, AL.Gold.copy(glow)), RoundedCornerShape(22.dp)).padding(20.dp)) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp))
+            .background(Brush.verticalGradient(listOf(AL.GoldBg, Color(0xFF0A0A0A))))
+            .border(BorderStroke(1.dp, AL.Gold.copy(glow)), RoundedCornerShape(22.dp)).padding(20.dp)
+    ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(AL.GoldSub), contentAlignment = Alignment.Center) {
@@ -131,9 +138,11 @@ fun PatchCard(
     auInstalled: Boolean, onPatch: () -> Unit, onLaunch: () -> Unit,
     onStopOverlay: () -> Unit, onReset: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-        .clip(RoundedCornerShape(18.dp)).background(AL.BgCard)
-        .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(18.dp)).padding(16.dp)) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(18.dp)).background(AL.BgCard)
+            .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(18.dp)).padding(16.dp)
+    ) {
         when (patch) {
             is MainViewModel.PatchState.Progress -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -148,8 +157,9 @@ fun PatchCard(
             }
             is MainViewModel.PatchState.Err -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.ReportProblem, null, tint = AL.Error, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp)); Text("Patch Failed", color = AL.Error, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Icon(Icons.Outlined.Warning, null, tint = AL.Error, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Patch Failed", color = AL.Error, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
                 Spacer(Modifier.height(6.dp)); Text(patch.msg, color = AL.Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(12.dp)); GhostButton("Dismiss", onClick = onReset, modifier = Modifier.fillMaxWidth(), color = AL.Error)
@@ -157,7 +167,8 @@ fun PatchCard(
             is MainViewModel.PatchState.Done -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.CheckCircle, null, tint = AL.Success, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp)); Text("Patch Complete!", color = AL.Success, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Patch Complete!", color = AL.Success, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
                 Spacer(Modifier.height(6.dp)); Text("Follow the install prompt to apply.", color = AL.Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(12.dp)); GhostButton("Done", onClick = onReset, modifier = Modifier.fillMaxWidth(), color = AL.Success)
@@ -165,9 +176,8 @@ fun PatchCard(
             else -> Column {
                 val dllCount = mods.count { it.enabled && it.format == ModFormat.DLL }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GoldButton("▶ Launch", onClick = onLaunch, modifier = Modifier.weight(1f), icon = Icons.Outlined.RocketLaunch, enabled = auInstalled)
-                    PurpleButton("⚙ Patch", onClick = onPatch, modifier = Modifier.wrapContentWidth(),
-                        icon = Icons.Outlined.Build, enabled = auInstalled && dllCount > 0)
+                    GoldButton("▶ Launch", onClick = onLaunch, modifier = Modifier.weight(1f), icon = Icons.Outlined.Send, enabled = auInstalled)
+                    PurpleButton("⚙ Patch", onClick = onPatch, modifier = Modifier.wrapContentWidth(), icon = Icons.Outlined.Build, enabled = auInstalled && dllCount > 0)
                 }
                 if (dllCount > 0) { Spacer(Modifier.height(6.dp)); Text("$dllCount DLL mod(s) queued for injection", color = AL.Muted, fontSize = 11.sp) }
                 if (overlay) { Spacer(Modifier.height(8.dp)); GhostButton("Stop Overlay", onClick = onStopOverlay, modifier = Modifier.fillMaxWidth(), color = AL.Error) }
@@ -185,13 +195,20 @@ fun PatchCard(
 @Composable
 fun ModRow(mod: InstalledMod, onToggle: () -> Unit, onDelete: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp)
-        .clip(RoundedCornerShape(14.dp)).background(AL.BgCard)
-        .border(BorderStroke(0.5.dp, if (mod.enabled) AL.GoldDark.copy(0.4f) else AL.Border), RoundedCornerShape(14.dp)).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(if (mod.enabled) AL.GoldBg else AL.Surface), contentAlignment = Alignment.Center) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(14.dp)).background(AL.BgCard)
+            .border(BorderStroke(0.5.dp, if (mod.enabled) AL.GoldDark.copy(0.4f) else AL.Border), RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp))
+                .background(if (mod.enabled) AL.GoldBg else AL.Surface),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
-                if (mod.format == ModFormat.LUA) Icons.Outlined.Code else Icons.Outlined.Widgets,
+                if (mod.format == ModFormat.LUA) Icons.Outlined.Code else Icons.Outlined.Apps,
                 null,
                 tint = if (mod.enabled) AL.Gold else AL.Muted,
                 modifier = Modifier.size(22.dp)
