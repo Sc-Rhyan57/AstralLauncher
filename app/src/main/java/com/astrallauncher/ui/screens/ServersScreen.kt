@@ -39,7 +39,7 @@ fun ServersScreen(vm: MainViewModel) {
                 Text("Custom servers are injected into Among Us via the patched APK. Requires mod support.", color = AL.Muted, fontSize = 12.sp, lineHeight = 18.sp)
             }
         } }
-        if (servers.isEmpty()) item { EmptyState(Icons.Outlined.Dns, "No custom servers", "Add a private or modded Among Us server", action = { GoldButton("Add Server", { showAdd = true }, icon = Icons.Outlined.Add) }) }
+        if (servers.isEmpty()) item { EmptyState(Icons.Outlined.Storage, "No custom servers", "Add a private or modded Among Us server", action = { GoldButton("Add Server", { showAdd = true }, icon = Icons.Outlined.Add) }) }
         else {
             item { SectionHeader("Custom Servers", action = "${servers.size}") }
             items(servers) { ServerCard(it) { vm.deleteServer(it.id) } }
@@ -59,7 +59,7 @@ fun ServersScreen(vm: MainViewModel) {
 @Composable fun ServerCard(s: CustomServer, onDelete: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp)).background(AL.BgCard).border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Dns, null, tint = AL.Gold, modifier = Modifier.size(22.dp)) }
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Storage, null, tint = AL.Gold, modifier = Modifier.size(22.dp)) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(s.name, color = AL.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -67,7 +67,7 @@ fun ServersScreen(vm: MainViewModel) {
             if (s.description.isNotEmpty()) Text(s.description, color = AL.Muted, fontSize = 11.sp, maxLines = 1)
         }
         StatusChip(s.region, AL.Gold); Spacer(Modifier.width(6.dp))
-        IconButton(onClick = { confirm = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.DeleteOutline, null, tint = AL.Error.copy(0.7f), modifier = Modifier.size(18.dp)) }
+        IconButton(onClick = { confirm = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.Delete, null, tint = AL.Error.copy(0.7f), modifier = Modifier.size(18.dp)) }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, containerColor = AL.Surface,
         title = { Text("Remove?", color = AL.White) }, text = { Text("Delete '${s.name}'?", color = AL.Muted) },
