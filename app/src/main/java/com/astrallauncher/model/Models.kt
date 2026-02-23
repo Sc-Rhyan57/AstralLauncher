@@ -51,11 +51,7 @@ enum class ModFormat {
 }
 
 @Serializable
-data class ChangelogEntry(
-    val version: String,
-    val date: String,
-    val changes: List<String>
-)
+data class ChangelogEntry(val version: String, val date: String, val changes: List<String>)
 
 data class InstalledMod(
     val id: String,
