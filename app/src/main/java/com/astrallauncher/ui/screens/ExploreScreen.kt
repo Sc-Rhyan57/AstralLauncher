@@ -64,7 +64,7 @@ fun ExploreScreen(vm: MainViewModel) {
                 } }
                 item { Spacer(Modifier.height(8.dp)); SectionHeader("All Mods") }
             }
-            if (filtered.isEmpty()) item { EmptyState(Icons.Outlined.Search, "No results", "Try a different search") }
+            if (filtered.isEmpty()) item { EmptyState(Icons.Outlined.SearchOff, "No results", "Try a different search") }
             else items(filtered) { mod -> ModRow2(mod, installed.any { it.id == mod.id }, progress[mod.id], { vm.downloadAndInstall(mod) }) { detail = mod } }
         }
     }
@@ -96,7 +96,7 @@ fun ExploreScreen(vm: MainViewModel) {
             Text(mod.author, color = AL.Gold, fontSize = 11.sp)
             Text(mod.shortDescription.ifEmpty { mod.description }, color = AL.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(Modifier.padding(top = 3.dp)) {
-                Icon(Icons.Outlined.GetApp, null, tint = AL.Muted, modifier = Modifier.size(12.dp))
+                Icon(Icons.Outlined.Download, null, tint = AL.Muted, modifier = Modifier.size(12.dp))
                 Text(" ${mod.downloads}", color = AL.Muted, fontSize = 11.sp)
                 Spacer(Modifier.width(6.dp))
                 mod.tags.take(2).forEach { StatusChip(it, AL.Purple); Spacer(Modifier.width(4.dp)) }
@@ -106,7 +106,7 @@ fun ExploreScreen(vm: MainViewModel) {
         if (progress != null) CircularProgressIndicator(progress = { progress / 100f }, modifier = Modifier.size(32.dp), color = AL.Gold, strokeWidth = 3.dp)
         else if (installed) StatusChip("✓", AL.Success)
         else IconButton(onClick = onInstall, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg)) {
-            Icon(Icons.Outlined.GetApp, null, tint = AL.Gold, modifier = Modifier.size(18.dp))
+            Icon(Icons.Outlined.Download, null, tint = AL.Gold, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -143,7 +143,7 @@ fun ExploreScreen(vm: MainViewModel) {
                 when {
                     progress != null -> { LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = AL.Gold); Spacer(Modifier.height(8.dp)); Text("Downloading $progress%", color = AL.Muted, fontSize = 13.sp) }
                     isInstalled -> StatusChip("✓ Installed", AL.Success)
-                    else -> GoldButton("Install", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.GetApp)
+                    else -> GoldButton("Install", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Download)
                 }
                 if (mod.changelog.isNotEmpty()) {
                     Spacer(Modifier.height(20.dp)); GoldDivider(); Spacer(Modifier.height(14.dp))
