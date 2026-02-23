@@ -139,7 +139,7 @@ fun ConsoleTab(output: String?, onClear: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Color(0xFF0D1117)).border(BorderStroke(1.dp, AL.Border), RoundedCornerShape(14.dp)).padding(14.dp)) {
             if (output.isNullOrEmpty()) Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Outlined.Computer, null, tint = AL.Muted.copy(0.3f), modifier = Modifier.size(48.dp))
+                Icon(Icons.Outlined.Terminal, null, tint = AL.Muted.copy(0.3f), modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(12.dp)); Text("No output", color = AL.Muted.copy(0.4f), fontSize = 14.sp)
             } else Text(output, color = Color(0xFF7EE787), fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp)
         }
@@ -151,7 +151,7 @@ fun DllDropTab() {
     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(Modifier.size(80.dp).clip(RoundedCornerShape(20.dp))
             .background(AL.GoldBg).border(BorderStroke(1.dp, AL.GoldDark.copy(0.5f)), RoundedCornerShape(20.dp)),
-            contentAlignment = Alignment.Center) { Icon(Icons.Outlined.ArrowUpward, null, tint = AL.Gold, modifier = Modifier.size(40.dp)) }
+            contentAlignment = Alignment.Center) { Icon(Icons.Outlined.FileUpload, null, tint = AL.Gold, modifier = Modifier.size(40.dp)) }
         Spacer(Modifier.height(20.dp))
         Text("DLL Injector", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         Spacer(Modifier.height(10.dp))
