@@ -22,7 +22,7 @@ import com.astrallauncher.ui.AL
 val navTabs = listOf(
     NavTab("Home",     Icons.Outlined.Home),
     NavTab("Explore",  Icons.Outlined.Public),
-    NavTab("Servers",  Icons.Outlined.Language),
+    NavTab("Servers",  Icons.Outlined.Storage),
     NavTab("Scripts",  Icons.Outlined.Code),
     NavTab("Settings", Icons.Outlined.Settings)
 )
