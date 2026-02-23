@@ -42,7 +42,7 @@ fun SettingsScreen(vm: MainViewModel, footerClicks: Int, onFooterClick: () -> Un
 
         item {
             Section("Game") {
-                SAction(Icons.Outlined.Security, "Overlay Permission",
+                SAction(Icons.Outlined.AdminPanelSettings, "Overlay Permission",
                     if (vm.hasOverlay()) "Granted — overlay can appear in-game" else "Required to show executor bubble",
                     iconTint = if (vm.hasOverlay()) AL.Success else AL.Warning, onClick = { vm.requestOverlay(ctx) },
                     trailing = { StatusChip(if (vm.hasOverlay()) "Granted" else "Missing", if (vm.hasOverlay()) AL.Success else AL.Warning) })
@@ -71,7 +71,7 @@ fun SettingsScreen(vm: MainViewModel, footerClicks: Int, onFooterClick: () -> Un
 
         item {
             Section("Developer") {
-                SAction(Icons.Outlined.ReportProblem, "Logs", "View all app logs, errors and events", iconTint = AL.Purple, onClick = { showLogs = true })
+                SAction(Icons.Outlined.BugReport, "Logs", "View all app logs, errors and events", iconTint = AL.Purple, onClick = { showLogs = true })
             }
         }
 
@@ -80,7 +80,7 @@ fun SettingsScreen(vm: MainViewModel, footerClicks: Int, onFooterClick: () -> Un
                 SAction(Icons.Outlined.Code, "Source Code", "github.com/Sc-Rhyan57/AstralLauncher", iconTint = AL.Purple, onClick = {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Sc-Rhyan57/AstralLauncher")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                 })
-                SAction(Icons.Outlined.Forum, "Discord", "Join the Astral Launcher community", iconTint = AL.Info, onClick = {
+                SAction(Icons.Outlined.ChatBubbleOutline, "Discord", "Join the Astral Launcher community", iconTint = AL.Info, onClick = {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.gg/")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                 })
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -114,7 +114,7 @@ fun LogsScreen(onBack: () -> Unit) {
                 val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("Logs", AppLogger.exportLogs()))
             }) { Icon(Icons.Outlined.ContentCopy, null, tint = AL.Muted) }
-            IconButton(onClick = { AppLogger.clearLogs() }) { Icon(Icons.Outlined.Delete, null, tint = AL.Error.copy(0.7f)) }
+            IconButton(onClick = { AppLogger.clearLogs() }) { Icon(Icons.Outlined.DeleteOutline, null, tint = AL.Error.copy(0.7f)) }
         }
 
         Row(Modifier.padding(horizontal = 14.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -125,7 +125,7 @@ fun LogsScreen(onBack: () -> Unit) {
         Spacer(Modifier.height(4.dp))
 
         if (logs.isEmpty()) {
-            EmptyState(Icons.Outlined.Computer, "No logs yet", "App events, errors and debug info appear here")
+            EmptyState(Icons.Outlined.Terminal, "No logs yet", "App events, errors and debug info appear here")
         } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(logs) { e ->
@@ -172,9 +172,9 @@ fun Footer(clicks: Int, onClick: () -> Unit) {
     val c = Color.hsv(hue, 0.75f, 1f)
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.clickable { onClick() }, verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Star, null, tint = c, modifier = Modifier.size(12.dp))
+            Icon(Icons.Outlined.AutoAwesome, null, tint = c, modifier = Modifier.size(12.dp))
             Spacer(Modifier.width(6.dp)); Text("By Rhyan57", fontSize = 12.sp, color = c, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.Star, null, tint = c, modifier = Modifier.size(12.dp))
+            Spacer(Modifier.width(6.dp)); Icon(Icons.Outlined.AutoAwesome, null, tint = c, modifier = Modifier.size(12.dp))
         }
         if (clicks in 1..4) Text("${5 - clicks}x to unlock dev mode", fontSize = 10.sp, color = AL.Muted.copy(0.4f))
     }
