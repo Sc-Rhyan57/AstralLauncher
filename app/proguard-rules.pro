@@ -1,3 +1,3 @@
--keep class com.topjohnwu.** { *; }
 -keep class com.astrallauncher.model.** { *; }
+-keep class com.astrallauncher.util.** { *; }
 -dontwarn org.apache.commons.**
