@@ -18,7 +18,7 @@ object ModRepositoryApi {
         isLenient = true
     }
 
-    const val REPO_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/astral-mods-repo/main/mods.json"
+    const val REPO_URL = "https://github.com/Sc-Rhyan57/AstralData/blob/main/AstralLauncher/mods.json"
 
     fun fetchMods(url: String = REPO_URL): Result<ModRepository> {
         return try {
