@@ -77,9 +77,7 @@ fun ServersScreen(vm: MainViewModel) {
         }
 
         item { Spacer(Modifier.height(16.dp)) }
-        item {
-            SectionHeader("Default Servers")
-        }
+        item { SectionHeader("Default Servers") }
         item {
             val defaults = listOf(
                 Triple("North America", "na.among.us", 22023),
@@ -169,6 +167,35 @@ fun ServerRow(server: CustomServer, onDelete: () -> Unit) {
 }
 
 @Composable
+private fun ServerField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    kb: KeyboardType = KeyboardType.Text,
+    hint: String = ""
+) {
+    Text(label, color = AL.MutedLight, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    Spacer(Modifier.height(6.dp))
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { if (hint.isNotEmpty()) Text(hint, color = AL.Muted) },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = AL.Gold,
+            unfocusedBorderColor = AL.Border,
+            focusedTextColor = AL.White,
+            unfocusedTextColor = AL.White,
+            cursorColor = AL.Gold
+        ),
+        shape = RoundedCornerShape(12.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = kb),
+        singleLine = true
+    )
+    Spacer(Modifier.height(14.dp))
+}
+
+@Composable
 fun AddServerSheet(onAdd: (CustomServer) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var ip by remember { mutableStateOf("") }
@@ -189,33 +216,11 @@ fun AddServerSheet(onAdd: (CustomServer) -> Unit, onDismiss: () -> Unit) {
         }
         Spacer(Modifier.height(24.dp))
 
-        fun field(label: String, value: String, onChange: (String) -> Unit, kb: KeyboardType = KeyboardType.Text, hint: String = "") {
-            Text(label, color = AL.MutedLight, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = value,
-                onValueChange = onChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { if (hint.isNotEmpty()) Text(hint, color = AL.Muted) },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AL.Gold,
-                    unfocusedBorderColor = AL.Border,
-                    focusedTextColor = AL.White,
-                    unfocusedTextColor = AL.White,
-                    cursorColor = AL.Gold
-                ),
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = kb),
-                singleLine = true
-            )
-            Spacer(Modifier.height(14.dp))
-        }
-
-        field("Server Name *", name, { name = it }, hint = "My Modded Server")
-        field("IP Address / Hostname *", ip, { ip = it }, hint = "192.168.0.1 or my.server.com")
-        field("Port", port, { port = it }, kb = KeyboardType.Number, hint = "22023")
-        field("Region Label", region, { region = it }, hint = "Custom")
-        field("Description", description, { description = it }, hint = "Optional description")
+        ServerField("Server Name *", name, { name = it }, hint = "My Modded Server")
+        ServerField("IP Address / Hostname *", ip, { ip = it }, hint = "192.168.0.1 or my.server.com")
+        ServerField("Port", port, { port = it }, kb = KeyboardType.Number, hint = "22023")
+        ServerField("Region Label", region, { region = it }, hint = "Custom")
+        ServerField("Description", description, { description = it }, hint = "Optional description")
 
         error?.let {
             Text(it, color = AL.Error, fontSize = 13.sp)
