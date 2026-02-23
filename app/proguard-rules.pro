@@ -1,0 +1,3 @@
+-keep class com.topjohnwu.** { *; }
+-keep class com.astrallauncher.model.** { *; }
+-dontwarn org.apache.commons.**
