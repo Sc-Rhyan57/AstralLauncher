@@ -56,13 +56,13 @@ fun HomeScreen(vm: MainViewModel) {
                 SectionHeader(if (mods.isEmpty()) "No mods installed" else "Installed Mods", action = if (mods.isNotEmpty()) "${mods.size}" else null)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { apkPicker.launch("application/vnd.android.package-archive") }) {
-                    Icon(Icons.Outlined.ArrowUpward, "Install APK", tint = AL.Muted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.FileUpload, "Install APK", tint = AL.Muted, modifier = Modifier.size(20.dp))
                 }
             }
         }
 
         if (mods.isEmpty()) {
-            item { EmptyState(Icons.Outlined.Dashboard, "No mods yet", "Go to Explore to install mods, or tap ↑ to sideload an APK") }
+            item { EmptyState(Icons.Outlined.Extension, "No mods yet", "Go to Explore to install mods, or tap ↑ to sideload an APK") }
         } else {
             items(mods) { mod -> ModRow(mod, onToggle = { vm.toggleMod(mod.id) }, onDelete = { vm.deleteMod(mod.id) }) }
         }
@@ -143,7 +143,7 @@ fun PatchCard(patch: MainViewModel.PatchState, mods: List<InstalledMod>, overlay
             }
             is MainViewModel.PatchState.Err -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.ReportProblem, null, tint = AL.Error, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.ErrorOutline, null, tint = AL.Error, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp)); Text("Patch Failed", color = AL.Error, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
                 Spacer(Modifier.height(6.dp)); Text(patch.msg, color = AL.Muted, fontSize = 12.sp)
@@ -151,7 +151,7 @@ fun PatchCard(patch: MainViewModel.PatchState, mods: List<InstalledMod>, overlay
             }
             is MainViewModel.PatchState.Done -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.CheckCircle, null, tint = AL.Success, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.CheckCircleOutline, null, tint = AL.Success, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp)); Text("Patch Complete!", color = AL.Success, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
                 Spacer(Modifier.height(6.dp)); Text("Follow the install prompt to apply.", color = AL.Muted, fontSize = 12.sp)
@@ -160,7 +160,7 @@ fun PatchCard(patch: MainViewModel.PatchState, mods: List<InstalledMod>, overlay
             else -> Column {
                 val dllCount = mods.count { it.enabled && it.format == ModFormat.DLL }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GoldButton("▶ Launch", onClick = onLaunch, modifier = Modifier.weight(1f), icon = Icons.Outlined.Send, enabled = auInstalled)
+                    GoldButton("▶ Launch", onClick = onLaunch, modifier = Modifier.weight(1f), icon = Icons.Outlined.RocketLaunch, enabled = auInstalled)
                     PurpleButton("⚙ Patch", onClick = onPatch, modifier = Modifier.wrapContentWidth(),
                         icon = Icons.Outlined.Build, enabled = auInstalled && dllCount > 0)
                 }
@@ -185,7 +185,7 @@ fun ModRow(mod: InstalledMod, onToggle: () -> Unit, onDelete: () -> Unit) {
         .border(BorderStroke(0.5.dp, if (mod.enabled) AL.GoldDark.copy(0.4f) else AL.Border), RoundedCornerShape(14.dp)).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(if (mod.enabled) AL.GoldBg else AL.Surface), contentAlignment = Alignment.Center) {
-            Icon(if (mod.format == ModFormat.LUA) Icons.Outlined.Code else Icons.Outlined.Dashboard, null,
+            Icon(if (mod.format == ModFormat.LUA) Icons.Outlined.Code else Icons.Outlined.Extension, null,
                 tint = if (mod.enabled) AL.Gold else AL.Muted, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(12.dp))
@@ -201,7 +201,7 @@ fun ModRow(mod: InstalledMod, onToggle: () -> Unit, onDelete: () -> Unit) {
             colors = SwitchDefaults.colors(checkedThumbColor = AL.Gold, checkedTrackColor = AL.GoldBg))
         Spacer(Modifier.width(4.dp))
         IconButton(onClick = { confirm = true }, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Outlined.Delete, null, tint = AL.Error.copy(0.7f), modifier = Modifier.size(18.dp))
+            Icon(Icons.Outlined.DeleteOutline, null, tint = AL.Error.copy(0.7f), modifier = Modifier.size(18.dp))
         }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, containerColor = AL.Surface,
