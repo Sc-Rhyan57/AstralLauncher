@@ -11,9 +11,6 @@ on:
         options:
           - debug
           - release
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
 
 permissions:
   contents: write
@@ -29,37 +26,37 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Gradle Wrapper
+        run: |
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper --gradle-version=8.6
+          fi
+          chmod +x gradlew
+
       - uses: gradle/actions/setup-gradle@v3
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
       - name: Decode Keystore
-        if: inputs.buildType == 'release' || startsWith(github.ref, 'refs/tags/')
+        if: inputs.buildType == 'release'
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
 
-      - name: Build Debug APK
-        if: inputs.buildType != 'release' && !startsWith(github.ref, 'refs/tags/')
-        run: ./gradlew :app:assembleDebug
-
-      - name: Build Release APK
-        if: inputs.buildType == 'release' || startsWith(github.ref, 'refs/tags/')
-        run: ./gradlew :app:assembleRelease
+      - name: Build APK
+        run: ./gradlew :app:assemble${{ inputs.buildType == 'release' && 'Release' || 'Debug' }}
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload Debug APK
-        if: inputs.buildType != 'release' && !startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AstralLauncher-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: AstralLauncher-${{ inputs.buildType }}
+          path: app/build/outputs/apk/**/*.apk
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.buildType == 'release'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Astral Launcher v1.0.${{ github.run_number }}
           files: app/build/outputs/apk/release/*.apk
           draft: false
           prerelease: false
