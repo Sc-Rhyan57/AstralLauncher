@@ -2,7 +2,7 @@
 
 > The open-source Among Us mod launcher for Android — compatible with Starlight mods, native .amod format, and Lua scripting.
 
-[![Build APK](https://github.com/YOUR_USERNAME/AstralLauncher/actions/workflows/build.yml/badge.svg)](https://github.com/YOUR_USERNAME/AstralLauncher/actions/workflows/build.yml)
+[![Build APK](https://github.com/Sc-rhyan57/AstralLauncher/actions/workflows/build.yml/badge.svg)](https://github.com/Sc-rhyan57/AstralLauncher/actions/workflows/build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ---
