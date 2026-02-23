@@ -20,19 +20,21 @@ import androidx.compose.ui.unit.sp
 import com.astrallauncher.ui.AL
 
 val navTabs = listOf(
-    NavTab("Home",    Icons.Outlined.Home),
-    NavTab("Explore", Icons.Outlined.TravelExplore),
-    NavTab("Servers", Icons.Outlined.Storage),
-    NavTab("Scripts", Icons.Outlined.Code),
-    NavTab("Settings",Icons.Outlined.Settings)
+    NavTab("Home",     Icons.Outlined.Home),
+    NavTab("Explore",  Icons.Outlined.Public),
+    NavTab("Servers",  Icons.Outlined.Language),
+    NavTab("Scripts",  Icons.Outlined.Code),
+    NavTab("Settings", Icons.Outlined.Settings)
 )
 
 data class NavTab(val label: String, val icon: ImageVector)
 
 @Composable
 fun AstralTopBar(title: String, actions: @Composable RowScope.() -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().background(AL.Bg).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().background(AL.Bg).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(title, color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, modifier = Modifier.weight(1f))
         actions()
     }
@@ -40,15 +42,22 @@ fun AstralTopBar(title: String, actions: @Composable RowScope.() -> Unit = {}) {
 
 @Composable
 fun AstralBottomBar(selected: Int, onSelect: (Int) -> Unit, modCount: Int) {
-    NavigationBar(containerColor = AL.BgCard, tonalElevation = 0.dp,
-        modifier = Modifier.border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))) {
+    NavigationBar(
+        containerColor = AL.BgCard, tonalElevation = 0.dp,
+        modifier = Modifier
+            .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+    ) {
         navTabs.forEachIndexed { i, tab ->
             NavigationBarItem(
                 selected = selected == i,
                 onClick = { onSelect(i) },
                 icon = {
-                    BadgedBox(badge = { if (i == 0 && modCount > 0) Badge(containerColor = AL.Gold) { Text("$modCount", color = Color.Black, fontSize = 9.sp) } }) {
+                    BadgedBox(badge = {
+                        if (i == 0 && modCount > 0) Badge(containerColor = AL.Gold) {
+                            Text("$modCount", color = Color.Black, fontSize = 9.sp)
+                        }
+                    }) {
                         Icon(tab.icon, tab.label, modifier = Modifier.size(22.dp))
                     }
                 },
@@ -85,9 +94,11 @@ fun GoldDivider() {
 
 @Composable
 fun GoldButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true) {
-    Button(onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
+    Button(
+        onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
         colors = ButtonDefaults.buttonColors(containerColor = AL.Gold, disabledContainerColor = AL.GoldDark.copy(0.3f)),
-        shape = RoundedCornerShape(12.dp)) {
+        shape = RoundedCornerShape(12.dp)
+    ) {
         icon?.let { Icon(it, null, modifier = Modifier.size(16.dp), tint = Color.Black); Spacer(Modifier.width(6.dp)) }
         Text(text, fontWeight = FontWeight.Bold, color = Color.Black)
     }
@@ -95,9 +106,11 @@ fun GoldButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
 
 @Composable
 fun PurpleButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true) {
-    Button(onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
+    Button(
+        onClick = onClick, enabled = enabled, modifier = modifier.height(44.dp),
         colors = ButtonDefaults.buttonColors(containerColor = AL.Purple, disabledContainerColor = AL.Purple.copy(0.3f)),
-        shape = RoundedCornerShape(12.dp)) {
+        shape = RoundedCornerShape(12.dp)
+    ) {
         icon?.let { Icon(it, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)) }
         Text(text, fontWeight = FontWeight.Bold)
     }
@@ -105,17 +118,22 @@ fun PurpleButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifie
 
 @Composable
 fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = AL.White) {
-    OutlinedButton(onClick = onClick, modifier = modifier.height(44.dp),
+    OutlinedButton(
+        onClick = onClick, modifier = modifier.height(44.dp),
         border = BorderStroke(1.dp, color.copy(0.5f)),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = color),
-        shape = RoundedCornerShape(12.dp)) {
+        shape = RoundedCornerShape(12.dp)
+    ) {
         Text(text, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
 fun EmptyState(icon: ImageVector, title: String, subtitle: String, action: (@Composable () -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 48.dp, horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 48.dp, horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Icon(icon, null, tint = AL.Muted.copy(0.3f), modifier = Modifier.size(56.dp))
         Spacer(Modifier.height(16.dp))
         Text(title, color = AL.MutedL, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -127,6 +145,9 @@ fun EmptyState(icon: ImageVector, title: String, subtitle: String, action: (@Com
 
 @Composable
 fun AstralCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(AL.Surface)
-        .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(14.dp), content = content)
+    Column(
+        modifier.clip(RoundedCornerShape(14.dp)).background(AL.Surface)
+            .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(14.dp),
+        content = content
+    )
 }
