@@ -24,7 +24,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx: Context get() = getApplication()
     private val TAG = "ViewModel"
 
-    val auInstalled = MutableStateFlow(false)
+    val auInstalled = MutableStateFlow(false).also { AppLogger.d(TAG, "auInstalled init") }
     val auVersion = MutableStateFlow("?")
     val patchedInstalled = MutableStateFlow(false)
     val patchedVersion = MutableStateFlow("?")
@@ -77,12 +77,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun downloadAndInstall(mod: ModEntry) {
         viewModelScope.launch {
             val release = mod.releases.firstOrNull() ?: return@launch
-            val ext = when (release.format) {
-                ModFormat.AMOD -> ".amod"
-                ModFormat.LUA -> ".lua"
-                ModFormat.ZIP -> ".zip"
-                else -> ".dll"
-            }
+            val ext = when (release.format) { ModFormat.AMOD -> ".amod"; ModFormat.LUA -> ".lua"; ModFormat.ZIP -> ".zip"; else -> ".dll" }
             val dest = File(ctx.filesDir, "mods/${mod.id}$ext")
             dest.parentFile?.mkdirs()
             AppLogger.i(TAG, "Downloading ${mod.name} -> ${dest.absolutePath}")
@@ -104,10 +99,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     else -> dest
                 }
                 saveMod(mod, file, release.format)
-            }.onFailure {
-                statusMsg.value = "Download failed: ${it.message}"
-                AppLogger.e(TAG, "DL fail: ${it.message}")
-            }
+            }.onFailure { statusMsg.value = "Download failed: ${it.message}"; AppLogger.e(TAG, "DL fail: ${it.message}") }
         }
     }
 
@@ -116,19 +108,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         list.removeAll { it.id == mod.id }
         list.add(InstalledMod(mod.id, mod.name, mod.author, mod.version, format = format, filePath = file.absolutePath))
         Prefs.saveInstalledMods(ctx, list)
-        statusMsg.value = "${mod.name} instalado — toque em Patch para aplicar"
+        statusMsg.value = "${mod.name} installed — patch AU to apply"
         AppLogger.i(TAG, "Mod saved: ${mod.name} at ${file.absolutePath}")
     }
 
     fun patchAndInstall() {
-        val enabledMods = installedMods.value.filter { it.enabled }
-        val dlls = enabledMods
-            .filter { it.format == ModFormat.DLL }
-            .map { File(it.filePath) }
-            .filter { it.exists() }
-
-        AppLogger.i(TAG, "Starting patch: ${dlls.size} DLL mod(s), ${enabledMods.size} total enabled")
-        patchState.value = PatchState.Progress("Preparando...", 0)
+        val dlls = installedMods.value.filter { it.enabled && it.format == ModFormat.DLL }.map { File(it.filePath) }.filter { it.exists() }
+        AppLogger.i(TAG, "Starting patch: ${dlls.size} DLL mod(s)")
+        patchState.value = PatchState.Progress("Preparing...", 0)
 
         ApkPatcher.patch(ctx, dlls, object : ApkPatcher.Callback {
             override fun onProgress(step: String, pct: Int) {
@@ -145,29 +132,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         })
     }
 
-    fun launchOrPatch() {
-        if (patchedInstalled.value) {
-            launchGame()
-        } else {
-            patchAndInstall()
-        }
-    }
-
     fun resetPatch() { patchState.value = PatchState.Idle }
 
     fun installExternalApk(ctx: Context, uri: Uri) {
         viewModelScope.launch {
             AppLogger.i(TAG, "Installing external APK: $uri")
-            statusMsg.value = "Preparando APK..."
+            statusMsg.value = "Preparing APK..."
             try {
                 val stream = ctx.contentResolver.openInputStream(uri) ?: return@launch
                 val dest = File(ctx.cacheDir, "ext_${System.currentTimeMillis()}.apk")
                 FileOutputStream(dest).use { stream.copyTo(it) }
                 GameHelper.installApk(ctx, dest)
-                statusMsg.value = "Siga o prompt de instalação"
+                statusMsg.value = "Follow the install prompt"
                 AppLogger.i(TAG, "APK install prompt shown")
             } catch (e: Exception) {
-                statusMsg.value = "Instalação falhou: ${e.message}"
+                statusMsg.value = "Install failed: ${e.message}"
                 AppLogger.e(TAG, "External APK install: ${e.message}")
             }
         }
@@ -176,7 +155,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun executeScript(script: String) {
         viewModelScope.launch {
             AppLogger.i(TAG, "Execute script: ${script.take(60)}")
-            scriptOutput.value = "Executando..."
+            scriptOutput.value = "Executing..."
             val result = withContext(Dispatchers.IO) { LuaRunner.execute(script) }
             scriptOutput.value = result.getOrElse { it.message }
         }
@@ -188,15 +167,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (hasOverlay()) startOverlay()
     }
 
-    fun hasOverlay(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(ctx)
+    fun hasOverlay(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(ctx)
 
     fun requestOverlay(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
+        context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
     }
 
     fun startOverlay() {
@@ -206,10 +180,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             putExtra(OverlayService.EXTRA_AU_VER, auVersion.value)
             putExtra(OverlayService.EXTRA_MODS_COUNT, installedMods.value.count { it.enabled })
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            ctx.startForegroundService(intent)
-        else
-            ctx.startService(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(intent) else ctx.startService(intent)
         overlayActive.value = true
         AppLogger.i(TAG, "Overlay started")
     }
@@ -221,22 +192,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addServer(s: CustomServer) = viewModelScope.launch {
-        val list = servers.value.toMutableList()
-        list.removeAll { it.id == s.id }
-        list.add(s)
-        Prefs.saveServers(ctx, list)
-        AppLogger.i(TAG, "Server added: ${s.name}")
+        val list = servers.value.toMutableList(); list.removeAll { it.id == s.id }; list.add(s)
+        Prefs.saveServers(ctx, list); AppLogger.i(TAG, "Server added: ${s.name}")
     }
 
     fun deleteServer(id: String) = viewModelScope.launch {
-        Prefs.saveServers(ctx, servers.value.filter { it.id != id })
-        AppLogger.i(TAG, "Server deleted: $id")
+        Prefs.saveServers(ctx, servers.value.filter { it.id != id }); AppLogger.i(TAG, "Server deleted: $id")
     }
 
     fun toggleMod(id: String) = viewModelScope.launch {
-        Prefs.saveInstalledMods(ctx, installedMods.value.map {
-            if (it.id == id) it.copy(enabled = !it.enabled) else it
-        })
+        Prefs.saveInstalledMods(ctx, installedMods.value.map { if (it.id == id) it.copy(enabled = !it.enabled) else it })
     }
 
     fun deleteMod(id: String) = viewModelScope.launch {
