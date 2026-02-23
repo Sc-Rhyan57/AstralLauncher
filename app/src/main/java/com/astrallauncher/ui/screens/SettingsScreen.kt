@@ -249,7 +249,7 @@ fun Footer(clicks: Int, onClick: () -> Unit) {
         Row(modifier = Modifier.clickable { onClick() }, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.AutoAwesome, null, tint = c, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Astral Launcher", fontSize = 12.sp, color = c, fontWeight = FontWeight.Bold)
+            Text("By Rhyan57", fontSize = 12.sp, color = c, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(6.dp))
             Icon(Icons.Outlined.AutoAwesome, null, tint = c, modifier = Modifier.size(13.dp))
         }
@@ -262,7 +262,7 @@ fun GithubButton() {
     val ctx = LocalContext.current
     OutlinedButton(
         onClick = {
-            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/YOUR_USERNAME/AstralLauncher")).apply {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Sc-Rhyan57/AstralLauncher")).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         },
@@ -273,6 +273,6 @@ fun GithubButton() {
     ) {
         Icon(Icons.Outlined.Code, null, modifier = Modifier.size(16.dp), tint = AL.Muted)
         Spacer(Modifier.width(8.dp))
-        Text("YOUR_USERNAME/AstralLauncher", fontWeight = FontWeight.SemiBold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 13.sp)
+        Text("Sc-rhyan57/AstralLauncher", fontWeight = FontWeight.SemiBold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 13.sp)
     }
 }
