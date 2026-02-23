@@ -4,10 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ModRepository(
-    val version: Int = 1,
-    val mods: List<ModEntry> = emptyList()
-)
+data class ModRepository(val version: Int = 1, val mods: List<ModEntry> = emptyList())
 
 @Serializable
 data class ModEntry(
@@ -54,11 +51,7 @@ enum class ModFormat {
 }
 
 @Serializable
-data class ChangelogEntry(
-    val version: String,
-    val date: String,
-    val changes: List<String>
-)
+data class ChangelogEntry(val version: String, val date: String, val changes: List<String>)
 
 data class InstalledMod(
     val id: String,
