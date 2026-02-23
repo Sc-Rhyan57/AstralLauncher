@@ -8,9 +8,7 @@ on:
         required: true
         default: 'debug'
         type: choice
-        options:
-          - debug
-          - release
+        options: [debug, release]
 
 permissions:
   contents: write
@@ -28,22 +26,34 @@ jobs:
 
       - name: Setup Gradle Wrapper
         run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version=8.6
-          fi
+          mkdir -p gradle/wrapper
+          curl -fsSL -o gradle/wrapper/gradle-wrapper.jar \
+            https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar
           chmod +x gradlew
 
       - uses: gradle/actions/setup-gradle@v3
 
-      - name: Decode Keystore
+      - name: Setup Keystore
         if: inputs.buildType == 'release'
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          else
+            keytool -genkey -v -keystore app/keystore.jks -alias astral \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass astral9090 -keypass astral9090 \
+              -dname "CN=Astral, OU=Dev, O=Astral, L=BR, ST=BR, C=BR"
+            echo "KEY_ALIAS=astral" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=astral9090" >> $GITHUB_ENV
+          fi
 
       - name: Build APK
         run: ./gradlew :app:assemble${{ inputs.buildType == 'release' && 'Release' || 'Debug' }}
         env:
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -58,7 +68,5 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Astral Launcher v1.0.${{ github.run_number }}
           files: app/build/outputs/apk/release/*.apk
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
