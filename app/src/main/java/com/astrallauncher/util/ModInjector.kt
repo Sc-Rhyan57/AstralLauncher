@@ -162,13 +162,3 @@ object ApkSigner {
         outputApk.writeBytes(inputApk.readBytes())
     }
 }
-
-object LuaRunner {
-    fun executeScript(script: String, ctx: Context): Result<String> {
-        return try {
-            Result.success("Lua execution requires the Among Us game process. Script queued for next launch.")
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-}
