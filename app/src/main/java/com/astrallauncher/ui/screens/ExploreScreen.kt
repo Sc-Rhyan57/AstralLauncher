@@ -31,7 +31,7 @@ fun ExploreScreen(vm: MainViewModel) {
 
     LaunchedEffect(Unit) { vm.fetchRemoteMods() }
 
-    val filtered = remoteMods.filter {
+    val filtered     = remoteMods.filter {
         query.isEmpty() || it.name.contains(query, true) || it.tags.any { t -> t.contains(query, true) }
     }
     val installedIds = installed.map { it.id }.toSet()
@@ -40,19 +40,19 @@ fun ExploreScreen(vm: MainViewModel) {
         Text("Explorar Mods", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Gold)
 
         OutlinedTextField(
-            value = query,
+            value         = query,
             onValueChange = { query = it },
-            placeholder = { Text("Buscar mods...", color = TextSecondary, fontSize = 13.sp) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Gold,
+            placeholder   = { Text("Buscar mods...", color = TextSecondary, fontSize = 13.sp) },
+            modifier      = Modifier.fillMaxWidth(),
+            shape         = RoundedCornerShape(10.dp),
+            colors        = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor   = Gold,
                 unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = Gold
+                focusedTextColor     = Color.White,
+                unfocusedTextColor   = Color.White,
+                cursorColor          = Gold
             ),
-            singleLine = true,
+            singleLine      = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {})
         )
@@ -82,8 +82,8 @@ fun ExploreScreen(vm: MainViewModel) {
 private fun ModCard(mod: Mod, installed: Boolean, onInstall: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
+        shape    = RoundedCornerShape(12.dp),
+        colors   = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -92,12 +92,7 @@ private fun ModCard(mod: Mod, installed: Boolean, onInstall: () -> Unit) {
                     Text("por ${mod.author} · v${mod.version}", color = TextSecondary, fontSize = 11.sp)
                 }
                 if (installed) {
-                    Text(
-                        "✓ Instalado",
-                        color = Color(0xFF00FF88),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("✓ Instalado", color = Color(0xFF00FF88), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -112,7 +107,7 @@ private fun ModCard(mod: Mod, installed: Boolean, onInstall: () -> Unit) {
                                 .background(Gold.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                                 .border(0.5.dp, Gold.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp),
-                            color = Gold,
+                            color    = Gold,
                             fontSize = 10.sp
                         )
                     }
@@ -121,11 +116,11 @@ private fun ModCard(mod: Mod, installed: Boolean, onInstall: () -> Unit) {
 
             if (!installed) {
                 Button(
-                    onClick = onInstall,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    onClick          = onInstall,
+                    modifier         = Modifier.fillMaxWidth(),
+                    colors           = ButtonDefaults.buttonColors(containerColor = Gold),
+                    shape            = RoundedCornerShape(8.dp),
+                    contentPadding   = PaddingValues(vertical = 8.dp)
                 ) {
                     Text("⬇ Instalar", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
