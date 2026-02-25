@@ -50,71 +50,66 @@ fun HomeScreen(vm: MainViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            "⚡ Astral Launcher",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = Gold
-        )
+        Text("⚡ Astral Launcher", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Gold)
 
         if (!auInstalled) {
             BannerCard(
-                icon = "⚠️",
-                title = "Among Us não encontrado",
-                body = "Instale o Among Us na Play Store primeiro.",
-                color = Color(0xFFFF6B6B),
+                icon   = "⚠️",
+                title  = "Among Us não encontrado",
+                body   = "Instale o Among Us na Play Store primeiro.",
+                color  = Color(0xFFFF6B6B),
                 action = "Abrir Play Store"
-            ) { /* vm.openPlayStore() */ }
+            ) {}
         }
 
         if (auInstalled && !isPatchedAu && !isPatching) {
             BannerCard(
-                icon = "ℹ️",
-                title = "Patch necessário para mods",
-                body = "O Among Us precisa ser patcheado para carregar mods BepInEx.\nO APK original é modificado e reinstalado com o mesmo package ID.",
-                color = Color(0xFF4A90D9),
+                icon   = "ℹ️",
+                title  = "Patch necessário para mods",
+                body   = "O Among Us precisa ser patcheado para carregar mods BepInEx.\nO APK original é modificado e reinstalado com o mesmo package ID.",
+                color  = Color(0xFF4A90D9),
                 action = null
             ) {}
         }
 
         patchError?.let { err ->
             BannerCard(
-                icon = "❌",
-                title = "Erro no patch",
-                body = err,
-                color = Color(0xFFFF6B6B),
+                icon   = "❌",
+                title  = "Erro no patch",
+                body   = err,
+                color  = Color(0xFFFF6B6B),
                 action = "Fechar"
             ) { vm.refreshStatus() }
         }
 
         StatusCard(
             auInstalled = auInstalled,
-            auVersion = auVersion,
+            auVersion   = auVersion,
             isPatchedAu = isPatchedAu,
-            modCount = installedMods.size
+            modCount    = installedMods.size
         )
 
         if (auInstalled && !isPatching) {
             PatchCard(
                 isPatchedAu = isPatchedAu,
-                modCount = installedMods.size,
-                onPatch = { vm.patchAndInstall() }
+                modCount    = installedMods.size,
+                onPatch     = { vm.patchAndInstall() }
             )
         }
 
         if (isPatching) {
             PatchProgressCard(
-                step = patchStep ?: "Preparando...",
+                step     = patchStep ?: "Preparando...",
                 progress = animProgress
             )
         }
 
         if (isPatchedAu || auInstalled) {
             LaunchCard(
-                isPatchedAu = isPatchedAu,
+                isPatchedAu    = isPatchedAu,
                 overlayRunning = overlayRunning,
                 hasOverlayPerm = hasOverlayPerm,
-                onLaunch = { vm.launchGame() },
+                onLaunch       = { vm.launchGame() },
                 onToggleOverlay = { vm.toggleOverlay() },
                 onGrantOverlay = {
                     ctx.startActivity(
@@ -131,17 +126,13 @@ fun HomeScreen(vm: MainViewModel) {
 
 @Composable
 private fun BannerCard(
-    icon: String,
-    title: String,
-    body: String,
-    color: Color,
-    action: String?,
-    onAction: () -> Unit
+    icon: String, title: String, body: String,
+    color: Color, action: String?, onAction: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
+        shape    = RoundedCornerShape(12.dp),
+        colors   = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -160,15 +151,13 @@ private fun BannerCard(
 
 @Composable
 private fun StatusCard(
-    auInstalled: Boolean,
-    auVersion: String?,
-    isPatchedAu: Boolean,
-    modCount: Int
+    auInstalled: Boolean, auVersion: String?,
+    isPatchedAu: Boolean, modCount: Int
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
+        shape    = RoundedCornerShape(12.dp),
+        colors   = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Status", fontWeight = FontWeight.Bold, color = Gold, fontSize = 14.sp)
@@ -183,7 +172,12 @@ private fun StatusCard(
 private fun StatusRow(label: String, value: String, ok: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = TextSecondary, fontSize = 12.sp)
-        Text(value, color = if (ok) Color(0xFF00FF88) else Color(0xFFFF6B6B), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(
+            value,
+            color      = if (ok) Color(0xFF00FF88) else Color(0xFFFF6B6B),
+            fontSize   = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -191,29 +185,27 @@ private fun StatusRow(label: String, value: String, ok: Boolean) {
 private fun PatchCard(isPatchedAu: Boolean, modCount: Int, onPatch: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
+        shape    = RoundedCornerShape(12.dp),
+        colors   = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Patch", fontWeight = FontWeight.Bold, color = Gold, fontSize = 14.sp)
             Text(
-                if (isPatchedAu)
-                    "Reaplicar patch com os mods habilitados atuais ($modCount DLLs)."
-                else
-                    "Injeta o overlay e os mods BepInEx no APK do Among Us. O jogo é reinstalado com o mesmo package ID.",
-                color = TextSecondary,
+                if (isPatchedAu) "Reaplicar patch com os mods habilitados atuais ($modCount DLLs)."
+                else "Injeta o overlay e os mods BepInEx no APK do Among Us. O jogo é reinstalado com o mesmo package ID.",
+                color    = TextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )
             Button(
-                onClick = onPatch,
+                onClick  = onPatch,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Gold),
-                shape = RoundedCornerShape(8.dp)
+                colors   = ButtonDefaults.buttonColors(containerColor = Gold),
+                shape    = RoundedCornerShape(8.dp)
             ) {
                 Text(
                     if (isPatchedAu) "⚙ Reaplicar Patch" else "⚙ Aplicar Patch",
-                    color = Color.Black,
+                    color      = Color.Black,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -225,23 +217,19 @@ private fun PatchCard(isPatchedAu: Boolean, modCount: Int, onPatch: () -> Unit) 
 private fun PatchProgressCard(step: String, progress: Float) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
+        shape    = RoundedCornerShape(12.dp),
+        colors   = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = Gold
-                )
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Gold)
                 Text("Patcheando...", fontWeight = FontWeight.Bold, color = Gold, fontSize = 14.sp)
             }
             Text(step, color = TextSecondary, fontSize = 12.sp)
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
-                color = Gold,
+                color    = Gold,
                 trackColor = Gold.copy(alpha = 0.15f)
             )
             Text("${(progress * 100).toInt()}%", color = TextSecondary, fontSize = 11.sp)
@@ -251,59 +239,54 @@ private fun PatchProgressCard(step: String, progress: Float) {
 
 @Composable
 private fun LaunchCard(
-    isPatchedAu: Boolean,
-    overlayRunning: Boolean,
-    hasOverlayPerm: Boolean,
-    onLaunch: () -> Unit,
-    onToggleOverlay: () -> Unit,
-    onGrantOverlay: () -> Unit
+    isPatchedAu: Boolean, overlayRunning: Boolean, hasOverlayPerm: Boolean,
+    onLaunch: () -> Unit, onToggleOverlay: () -> Unit, onGrantOverlay: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
+        shape    = RoundedCornerShape(12.dp),
+        colors   = CardDefaults.cardColors(containerColor = CardBg)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Jogar", fontWeight = FontWeight.Bold, color = Gold, fontSize = 14.sp)
 
             if (!isPatchedAu) {
-                Text(
-                    "⚠️ Sem patch aplicado — iniciará o AU sem mods.",
-                    color = Color(0xFFFFAA44),
-                    fontSize = 11.sp
-                )
+                Text("⚠️ Sem patch aplicado — iniciará o AU sem mods.", color = Color(0xFFFFAA44), fontSize = 11.sp)
             }
 
             Button(
-                onClick = onLaunch,
+                onClick  = onLaunch,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
+                colors   = ButtonDefaults.buttonColors(
                     containerColor = if (isPatchedAu) Gold else Color(0xFF444466)
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("▶ Launch Among Us", color = if (isPatchedAu) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    "▶ Launch Among Us",
+                    color      = if (isPatchedAu) Color.Black else Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
             Text("Overlay", fontWeight = FontWeight.Bold, color = Gold, fontSize = 13.sp)
 
             if (!hasOverlayPerm) {
                 OutlinedButton(
-                    onClick = onGrantOverlay,
+                    onClick  = onGrantOverlay,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)
+                    shape    = RoundedCornerShape(8.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = Gold)
                 ) {
                     Text("Conceder permissão de overlay")
                 }
             } else {
                 OutlinedButton(
-                    onClick = onToggleOverlay,
+                    onClick  = onToggleOverlay,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
+                    shape    = RoundedCornerShape(8.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(
                         contentColor = if (overlayRunning) Color(0xFFFF6B6B) else Gold
                     )
                 ) {
@@ -312,7 +295,7 @@ private fun LaunchCard(
                 Text(
                     if (overlayRunning) "● Overlay ativo — abre ao iniciar o jogo"
                     else "Overlay mostra o gerenciador de mods sobre o jogo",
-                    color = if (overlayRunning) Color(0xFF00FF88) else TextSecondary,
+                    color    = if (overlayRunning) Color(0xFF00FF88) else TextSecondary,
                     fontSize = 11.sp
                 )
             }
