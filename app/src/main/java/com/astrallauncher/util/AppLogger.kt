@@ -18,7 +18,6 @@ object AppLogger {
     private fun add(level: LogLevel, tag: String, msg: String) {
         val entry = LogEntry(fmt.format(Date()), level, tag, msg)
         _logs.value = (_logs.value + entry).takeLast(500)
-        val prefix = "[${entry.time}] [${level.name}] [$tag]"
         when (level) {
             LogLevel.ERROR -> android.util.Log.e(tag, msg)
             LogLevel.WARN  -> android.util.Log.w(tag, msg)
