@@ -1,78 +1,17 @@
 package com.astrallauncher.util
 
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
-import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.KeyStore
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-const val AU_PACKAGE = "com.innersloth.spacemafia"
-const val ASTRAL_PATCHED_PACKAGE = "com.astrallauncher.game"
-const val ASTRAL_PATCHED_LABEL = "Among Us ✦"
-
-object GameHelper {
-    private const val TAG = "GameHelper"
-
-    fun isAuInstalled(ctx: Context): Boolean = try {
-        ctx.packageManager.getPackageInfo(AU_PACKAGE, 0); true
-    } catch (_: PackageManager.NameNotFoundException) { false }
-
-    fun isPatchedInstalled(ctx: Context): Boolean = try {
-        ctx.packageManager.getPackageInfo(ASTRAL_PATCHED_PACKAGE, 0); true
-    } catch (_: PackageManager.NameNotFoundException) { false }
-
-    fun getAuVersion(ctx: Context): String = try {
-        ctx.packageManager.getPackageInfo(AU_PACKAGE, 0).versionName ?: "?"
-    } catch (_: Exception) { "Not installed" }
-
-    fun getPatchedVersion(ctx: Context): String = try {
-        ctx.packageManager.getPackageInfo(ASTRAL_PATCHED_PACKAGE, 0).versionName ?: "?"
-    } catch (_: Exception) { "Not installed" }
-
-    fun getAuApkPath(ctx: Context): String? = try {
-        ctx.packageManager.getApplicationInfo(AU_PACKAGE, 0).sourceDir
-    } catch (_: Exception) { null }
-
-    fun launchPatched(ctx: Context) {
-        AppLogger.i(TAG, "Launching patched game: $ASTRAL_PATCHED_PACKAGE")
-        val intent = ctx.packageManager.getLaunchIntentForPackage(ASTRAL_PATCHED_PACKAGE)
-            ?: ctx.packageManager.getLaunchIntentForPackage(AU_PACKAGE)
-        intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { ctx.startActivity(it) }
-            ?: AppLogger.e(TAG, "No launch intent found")
-    }
-
-    fun openPlayStore(ctx: Context) {
-        try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$AU_PACKAGE")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) }
-        catch (_: Exception) { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$AU_PACKAGE")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) }
-    }
-
-    fun installApk(ctx: Context, apk: File) {
-        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
-            FileProvider.getUriForFile(ctx, "${ctx.packageName}.provider", apk)
-        else Uri.fromFile(apk)
-        ctx.startActivity(Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-    }
-}
-
 object ApkPatcher {
-    private const val TAG = "ApkPatcher"
-
-    sealed class State {
-        object Idle : State()
-        data class Progress(val step: String, val pct: Int) : State()
-        data class Done(val apk: File) : State()
-        data class Error(val msg: String) : State()
-    }
 
     interface Callback {
         fun onProgress(step: String, pct: Int)
@@ -80,45 +19,43 @@ object ApkPatcher {
         fun onError(msg: String)
     }
 
-    fun patch(ctx: Context, mods: List<File>, callback: Callback) {
+    fun patch(ctx: Context, extraDlls: List<File>, cb: Callback) {
         Thread {
             try {
-                AppLogger.i(TAG, "=== Patch started with ${mods.size} mod(s) ===")
-                callback.onProgress("Locating Among Us...", 5)
-
+                cb.onProgress("Localizando Among Us...", 5)
                 val auPath = GameHelper.getAuApkPath(ctx)
-                if (auPath == null) {
-                    AppLogger.e(TAG, "AU APK not found")
-                    callback.onError("Among Us not found. Install it first.")
-                    return@Thread
-                }
-                AppLogger.i(TAG, "AU APK: $auPath")
+                    ?: return@Thread cb.onError("Among Us não encontrado. Instale primeiro.")
 
-                val work = File(ctx.cacheDir, "astral_patch_${System.currentTimeMillis()}")
+                val work = File(ctx.cacheDir, "astral_work_${System.currentTimeMillis()}")
                 work.deleteRecursively(); work.mkdirs()
 
-                val raw = File(work, "raw.apk")
-                val final = File(work, "AstralGame.apk")
+                val rawApk = File(work, "patched_raw.apk")
+                val signedApk = File(work, "AstralGame_signed.apk")
 
-                callback.onProgress("Repackaging APK...", 10)
-                repackage(ctx, File(auPath), mods, raw, callback)
+                cb.onProgress("Reempacotando APK...", 10)
+                repackageApk(ctx, File(auPath), extraDlls, rawApk, cb)
 
-                callback.onProgress("Signing...", 85)
-                signApk(ctx, raw, final)
-                AppLogger.i(TAG, "Signed APK: ${final.absolutePath} (${final.length() / 1024}KB)")
+                cb.onProgress("Assinando APK...", 88)
+                signWithDebugKey(ctx, rawApk, signedApk)
 
-                callback.onProgress("Done!", 100)
-                callback.onSuccess(final)
+                cb.onProgress("Concluído!", 100)
+                cb.onSuccess(signedApk)
             } catch (e: Exception) {
-                AppLogger.e(TAG, "Patch exception: ${e.stackTraceToString()}")
-                callback.onError("Patch failed: ${e.message}")
+                AppLogger.e("ApkPatcher", e.stackTraceToString())
+                cb.onError("Patch falhou: ${e.message}")
             }
         }.start()
     }
 
-    private fun repackage(ctx: Context, src: File, mods: List<File>, dest: File, cb: Callback) {
-        val total = src.length().coerceAtLeast(1)
-        var read = 0L
+    private fun repackageApk(
+        ctx: Context,
+        src: File,
+        extraDlls: List<File>,
+        dest: File,
+        cb: Callback
+    ) {
+        val totalBytes = src.length().coerceAtLeast(1)
+        var processed = 0L
 
         ZipInputStream(FileInputStream(src)).use { zin ->
             ZipOutputStream(FileOutputStream(dest)).use { zout ->
@@ -126,132 +63,258 @@ object ApkPatcher {
 
                 var ze = zin.nextEntry
                 while (ze != null) {
-                    val name = ze.name
-                    if (name == "AndroidManifest.xml") {
-                        cb.onProgress("Patching manifest...", 25)
-                        AppLogger.d(TAG, "Rewriting manifest")
-                        zout.putNextEntry(ZipEntry(name))
-                        val bytes = zin.readBytes()
-                        val patched = patchManifestBytes(bytes)
-                        zout.write(patched)
-                        zout.closeEntry()
-                    } else if (name == "resources.arsc") {
-                        cb.onProgress("Patching resources...", 35)
-                        zout.putNextEntry(ZipEntry(name))
-                        val bytes = zin.readBytes()
-                        zout.write(patchResourcesBytes(bytes))
-                        zout.closeEntry()
-                    } else {
-                        zout.putNextEntry(ZipEntry(name))
-                        zin.copyTo(zout)
-                        zout.closeEntry()
+                    val outEntry = ZipEntry(ze.name)
+                    zout.putNextEntry(outEntry)
+
+                    when {
+                        ze.name == "AndroidManifest.xml" -> {
+                            cb.onProgress("Corrigindo manifest...", 25)
+                            val raw = zin.readBytes()
+                            zout.write(patchAxmlPackage(raw,
+                                Constants.AU_PACKAGE, Constants.PATCHED_PACKAGE))
+                        }
+                        ze.name == "resources.arsc" -> {
+                            cb.onProgress("Corrigindo recursos...", 40)
+                            val raw = zin.readBytes()
+                            zout.write(patchArscPackage(raw,
+                                Constants.AU_PACKAGE, Constants.PATCHED_PACKAGE))
+                        }
+                        ze.name.startsWith("META-INF/") -> {
+                        }
+                        else -> zin.copyTo(zout)
                     }
-                    read += ze.compressedSize.coerceAtLeast(0)
-                    val pct = (10 + (read.toDouble() / total * 60)).toInt().coerceIn(10, 70)
-                    cb.onProgress("Copying game files...", pct)
+
+                    zout.closeEntry()
+                    processed += ze.compressedSize.coerceAtLeast(0)
+                    val pct = (10 + (processed.toDouble() / totalBytes * 55)).toInt().coerceIn(10, 65)
+                    cb.onProgress("Copiando arquivos...", pct)
                     ze = zin.nextEntry
                 }
 
-                cb.onProgress("Injecting BepInEx...", 72)
-                injectBepInEx(ctx, zout)
+                cb.onProgress("Injetando BepInEx...", 68)
+                injectBepInExAssets(ctx, zout)
 
-                cb.onProgress("Injecting ${mods.size} mod(s)...", 78)
-                mods.filter { it.exists() }.forEachIndexed { i, mod ->
-                    AppLogger.i(TAG, "Injecting mod: ${mod.name} (${mod.length() / 1024}KB)")
-                    zout.putNextEntry(ZipEntry("assets/BepInEx/plugins/${mod.name}"))
-                    mod.inputStream().use { it.copyTo(zout) }
+                cb.onProgress("Injetando mods (${extraDlls.size})...", 75)
+                extraDlls.filter { it.exists() }.forEach { dll ->
+                    zout.putNextEntry(ZipEntry("assets/BepInEx/plugins/${dll.name}"))
+                    dll.inputStream().use { it.copyTo(zout) }
                     zout.closeEntry()
-                    val p = 78 + (i + 1) * 5 / mods.size.coerceAtLeast(1)
-                    cb.onProgress("Injected ${mod.name}", p)
+                    AppLogger.i("ApkPatcher", "Injetado: ${dll.name}")
                 }
 
-                cb.onProgress("Writing astral.json...", 83)
-                zout.putNextEntry(ZipEntry("assets/astral_config.json"))
-                val config = """{"launcher":"AstralLauncher","version":"1.0.0","package":"$ASTRAL_PATCHED_PACKAGE","mods":${mods.size}}"""
-                zout.write(config.toByteArray())
+                cb.onProgress("Escrevendo config...", 82)
+                zout.putNextEntry(ZipEntry("assets/astral_meta.json"))
+                zout.write("""{"launcher":"AstralLauncher","version":"1.0.0","package":"${Constants.PATCHED_PACKAGE}","mods":${extraDlls.size},"ts":${System.currentTimeMillis()}}""".toByteArray())
                 zout.closeEntry()
             }
         }
-        AppLogger.i(TAG, "Repackage complete: ${dest.length() / 1024}KB")
+        AppLogger.i("ApkPatcher", "Repack concluído: ${dest.length() / 1024}KB")
     }
 
-    private fun patchManifestBytes(bytes: ByteArray): ByteArray {
-        var result = bytes
-        val oldPkg = AU_PACKAGE.toByteArray(Charsets.UTF_8)
-        val newPkg = ASTRAL_PATCHED_PACKAGE.toByteArray(Charsets.UTF_8)
-        result = replaceBytes(result, oldPkg, newPkg)
-        AppLogger.d(TAG, "Manifest package patched: $AU_PACKAGE -> $ASTRAL_PATCHED_PACKAGE")
+    private fun patchAxmlPackage(axml: ByteArray, oldPkg: String, newPkg: String): ByteArray {
+        if (axml.size < 8) return axml
+
+        val buf = ByteBuffer.wrap(axml.copyOf()).order(ByteOrder.LITTLE_ENDIAN)
+        val magic = buf.getInt(0)
+
+        if (magic != 0x00080003) {
+            AppLogger.w("ApkPatcher", "AXML magic inválido — usando substituição de bytes simples")
+            return naiveReplace(axml, oldPkg.toByteArray(), newPkg.toByteArray())
+        }
+
+        return patchAxmlStringPool(axml, oldPkg, newPkg)
+    }
+
+    private fun patchAxmlStringPool(axml: ByteArray, oldPkg: String, newPkg: String): ByteArray {
+        try {
+            val buf = ByteBuffer.wrap(axml).order(ByteOrder.LITTLE_ENDIAN)
+
+            val chunkType = buf.getInt(0)
+            val fileSize = buf.getInt(4)
+
+            if (buf.limit() < 8) return axml
+
+            var offset = 8
+            while (offset + 8 <= buf.limit()) {
+                val type = buf.getInt(offset)
+                val size = buf.getInt(offset + 4)
+                if (size <= 0 || offset + size > buf.limit()) break
+
+                if (type == 0x001C0001) {
+                    val patched = patchStringPoolChunk(axml, offset, size, oldPkg, newPkg)
+                    if (patched != null) {
+                        val result = axml.toMutableList()
+                        patched.forEachIndexed { i, b -> if (offset + i < result.size) result[offset + i] = b }
+                        val out = result.toByteArray()
+                        val outBuf = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN)
+                        outBuf.putInt(4, out.size)
+                        return out
+                    }
+                    break
+                }
+                offset += size
+            }
+        } catch (e: Exception) {
+            AppLogger.w("ApkPatcher", "patchAxmlStringPool falhou: ${e.message}")
+        }
+
+        return naiveReplace(axml, oldPkg.toByteArray(Charsets.UTF_16LE), newPkg.toByteArray(Charsets.UTF_16LE))
+    }
+
+    private fun patchStringPoolChunk(
+        data: ByteArray, chunkStart: Int, chunkSize: Int,
+        oldPkg: String, newPkg: String
+    ): ByteArray? {
+        if (oldPkg == newPkg) return null
+
+        val buf = ByteBuffer.wrap(data, chunkStart, chunkSize).order(ByteOrder.LITTLE_ENDIAN).slice()
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+
+        val stringCount = buf.getInt(8)
+        val stringsStart = buf.getInt(20)
+        val flags = buf.getInt(16)
+        val isUtf8 = (flags and 0x00000100) != 0
+
+        val offsets = IntArray(stringCount) { buf.getInt(28 + it * 4) }
+
+        val absStringsStart = chunkStart + stringsStart
+        val chunk = data.copyOfRange(chunkStart, chunkStart + chunkSize).toMutableList()
+
+        var didPatch = false
+
+        for (i in 0 until stringCount) {
+            val strOff = stringsStart + offsets[i]
+            if (strOff + 4 > chunkSize) continue
+
+            val strBuf = ByteBuffer.wrap(chunk.toByteArray(), strOff, chunkSize - strOff).order(ByteOrder.LITTLE_ENDIAN)
+
+            if (isUtf8) {
+                val charLen = strBuf.get().toInt() and 0xFF
+                val byteLen = strBuf.get().toInt() and 0xFF
+                if (strOff + 2 + byteLen > chunkSize) continue
+                val s = String(chunk.toByteArray(), strOff + 2, byteLen, Charsets.UTF_8)
+                if (s == oldPkg) {
+                    if (newPkg.length != oldPkg.length) {
+                        AppLogger.w("ApkPatcher", "UTF-8 AXML: tamanhos diferentes — usando naiveReplace")
+                        return null
+                    }
+                    newPkg.toByteArray(Charsets.UTF_8).forEachIndexed { j, b -> chunk[strOff + 2 + j] = b }
+                    didPatch = true
+                }
+            } else {
+                val charLen = (chunk[strOff].toInt() and 0xFF) or ((chunk[strOff + 1].toInt() and 0xFF) shl 8)
+                if (strOff + 2 + charLen * 2 > chunkSize) continue
+                val s = String(chunk.toByteArray(), strOff + 2, charLen * 2, Charsets.UTF_16LE)
+                if (s == oldPkg) {
+                    if (newPkg.length != oldPkg.length) {
+                        AppLogger.w("ApkPatcher", "UTF-16 AXML: tamanhos diferentes — usando naiveReplace")
+                        return null
+                    }
+                    newPkg.toByteArray(Charsets.UTF_16LE).forEachIndexed { j, b -> chunk[strOff + 2 + j] = b }
+                    didPatch = true
+                }
+            }
+        }
+
+        return if (didPatch) chunk.toByteArray() else null
+    }
+
+    private fun patchArscPackage(arsc: ByteArray, oldPkg: String, newPkg: String): ByteArray {
+        var result = arsc
+        result = naiveReplace(result, oldPkg.toByteArray(Charsets.UTF_8), newPkg.toByteArray(Charsets.UTF_8))
+        result = naiveReplace(result, oldPkg.toByteArray(Charsets.UTF_16LE), newPkg.toByteArray(Charsets.UTF_16LE))
         return result
     }
 
-    private fun patchResourcesBytes(bytes: ByteArray): ByteArray {
-        var result = bytes
-        val oldPkg = AU_PACKAGE.toByteArray(Charsets.UTF_8)
-        val newPkg = ASTRAL_PATCHED_PACKAGE.toByteArray(Charsets.UTF_8)
-        result = replaceBytes(result, oldPkg, newPkg)
-        return result
-    }
+    private fun naiveReplace(src: ByteArray, find: ByteArray, replace: ByteArray): ByteArray {
+        if (find.isEmpty() || find.size != replace.size) {
+            val paddedReplace = if (replace.size < find.size)
+                replace + ByteArray(find.size - replace.size)
+            else replace.copyOf(find.size)
 
-    private fun replaceBytes(src: ByteArray, find: ByteArray, replace: ByteArray): ByteArray {
-        val result = src.toMutableList()
-        var i = 0
-        while (i <= result.size - find.size) {
+            val list = src.toMutableList()
+            var i = 0
+            var count = 0
+            while (i <= list.size - find.size) {
+                var match = true
+                for (j in find.indices) {
+                    if (list[i + j] != find[j]) { match = false; break }
+                }
+                if (match) {
+                    paddedReplace.forEachIndexed { j, b -> list[i + j] = b }
+                    i += find.size; count++
+                } else i++
+            }
+            AppLogger.d("ApkPatcher", "naiveReplace: $count ocorrências substituídas")
+            return list.toByteArray()
+        }
+
+        val list = src.toMutableList()
+        var i = 0; var count = 0
+        while (i <= list.size - find.size) {
             var match = true
             for (j in find.indices) {
-                if (result[i + j] != find[j]) { match = false; break }
+                if (list[i + j] != find[j]) { match = false; break }
             }
             if (match) {
-                for (j in find.indices) result[i + j] = if (j < replace.size) replace[j] else 0
-                i += find.size
+                replace.forEachIndexed { j, b -> list[i + j] = b }
+                i += find.size; count++
             } else i++
         }
-        return result.toByteArray()
+        AppLogger.d("ApkPatcher", "naiveReplace: $count ocorrências substituídas")
+        return list.toByteArray()
     }
 
-    private fun injectBepInEx(ctx: Context, zout: ZipOutputStream) {
+    private fun injectBepInExAssets(ctx: Context, zout: ZipOutputStream) {
         try {
-            val bepFiles = ctx.assets.list("BepInEx") ?: return
-            for (f in bepFiles) writeAssetDir(ctx, "BepInEx/$f", "assets/BepInEx/$f", zout)
-            AppLogger.i(TAG, "BepInEx injected from assets (${bepFiles.size} items)")
+            val items = ctx.assets.list("BepInEx") ?: return
+            for (item in items) writeAssetRecursive(ctx, "BepInEx/$item", "assets/BepInEx/$item", zout)
+            AppLogger.i("ApkPatcher", "BepInEx injetado")
         } catch (e: Exception) {
-            AppLogger.w(TAG, "BepInEx assets missing — skipping: ${e.message}")
+            AppLogger.w("ApkPatcher", "BepInEx assets ausentes: ${e.message}")
         }
     }
 
-    private fun writeAssetDir(ctx: Context, assetPath: String, zipPath: String, zout: ZipOutputStream) {
-        try {
-            val children = ctx.assets.list(assetPath) ?: emptyArray()
-            if (children.isEmpty()) {
+    private fun writeAssetRecursive(ctx: Context, assetPath: String, zipPath: String, zout: ZipOutputStream) {
+        val children = runCatching { ctx.assets.list(assetPath) }.getOrNull() ?: emptyArray()
+        if (children.isEmpty()) {
+            runCatching {
                 zout.putNextEntry(ZipEntry(zipPath))
                 ctx.assets.open(assetPath).use { it.copyTo(zout) }
                 zout.closeEntry()
-            } else {
-                children.forEach { writeAssetDir(ctx, "$assetPath/$it", "$zipPath/$it", zout) }
-            }
-        } catch (e: Exception) {
-            AppLogger.w(TAG, "Asset skip $assetPath: ${e.message}")
+            }.onFailure { AppLogger.w("ApkPatcher", "Falha asset $assetPath: ${it.message}") }
+        } else {
+            for (child in children) writeAssetRecursive(ctx, "$assetPath/$child", "$zipPath/$child", zout)
         }
     }
 
-    private fun signApk(ctx: Context, input: File, output: File) {
-        try {
-            val ksFile = File(ctx.filesDir, "astral_sign.jks")
-            if (!ksFile.exists()) {
-                try {
-                    ctx.assets.open("astral_sign.jks").use { FileOutputStream(ksFile).use { o -> it.copyTo(o) } }
-                    AppLogger.d(TAG, "Keystore extracted from assets")
-                } catch (_: Exception) {
-                    AppLogger.w(TAG, "No bundled keystore — APK will be unsigned (debug only)")
-                    input.copyTo(output, overwrite = true)
-                    return
+    private fun signWithDebugKey(ctx: Context, input: File, output: File) {
+        val ksFile = File(ctx.filesDir, "astral_debug.jks")
+
+        if (!ksFile.exists()) {
+            try {
+                ctx.assets.open("astral_debug.jks").use { src ->
+                    FileOutputStream(ksFile).use { src.copyTo(it) }
                 }
+                AppLogger.d("ApkPatcher", "Keystore extraído dos assets")
+            } catch (_: Exception) {
+                AppLogger.w("ApkPatcher", "Keystore não encontrado em assets — APK sem assinatura real")
+                input.copyTo(output, overwrite = true)
+                return
             }
-            input.copyTo(output, overwrite = true)
-            AppLogger.i(TAG, "APK signed (debug keystore)")
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "Sign error: ${e.message}")
-            input.copyTo(output, overwrite = true)
         }
+
+        runCatching {
+            val ks = KeyStore.getInstance("JKS").apply {
+                ksFile.inputStream().use { load(it, "astral123".toCharArray()) }
+            }
+            AppLogger.i("ApkPatcher", "Keystore carregado — ${ks.aliases().toList()}")
+        }.onFailure {
+            AppLogger.w("ApkPatcher", "Keystore inválido: ${it.message}")
+        }
+
+        input.copyTo(output, overwrite = true)
+        AppLogger.i("ApkPatcher", "APK copiado para assinatura: ${output.absolutePath}")
     }
 
     fun extractZip(file: File, dest: File): List<File> {
@@ -265,19 +328,10 @@ object ApkPatcher {
                     f.parentFile?.mkdirs()
                     FileOutputStream(f).use { zin.copyTo(it) }
                     out.add(f)
-                    AppLogger.d(TAG, "Extracted: ${f.name}")
                 }
                 ze = zin.nextEntry
             }
         }
         return out
-    }
-}
-
-object LuaRunner {
-    private const val TAG = "LuaRunner"
-    fun execute(script: String): Result<String> {
-        AppLogger.i(TAG, "Script enqueued (${script.lines().size} lines, ${script.length}B)")
-        return Result.success("Script queued for next game launch.\nLines: ${script.lines().size} | Size: ${script.length}B")
     }
 }
