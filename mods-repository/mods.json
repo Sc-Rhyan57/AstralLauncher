@@ -1,137 +1,42 @@
-{
-  "version": 1,
-  "mods": [
-    {
-      "id": "town-of-us-mira",
-      "name": "Town Of Us Mira",
-      "author": "AU Avengers",
-      "description": "Town of Us Reactivated, rebuilt using MiraAPI with full Android support. 50+ unique roles including Sheriff, Jester, Lover and more.",
-      "short_description": "Town of Us rebuilt with MiraAPI — 50+ roles!",
-      "version": "3.1.2",
-      "game_version": "2026.x",
-      "icon": "",
-      "banner": "",
-      "tags": ["roles", "crewmate", "impostor", "miraapi"],
-      "downloads": 19485,
-      "updated_at": "2026-01-22",
-      "starlight_compatible": true,
-      "astral_format": false,
-      "supports_lua": false,
-      "source_url": "https://github.com/AU-Avengers/TOU-Mira",
-      "discord_url": "https://discord.gg/tou",
-      "releases": [
-        {
-          "version": "3.1.2",
-          "url": "https://github.com/AU-Avengers/TOU-Mira/releases/download/v3.1.2/TownOfUsMira.dll",
-          "format": "dll",
-          "size": 2097152,
-          "game_version": "2026.x",
-          "release_notes": "Fixed compatibility with latest AU update.",
-          "published_at": "2026-01-22"
-        }
-      ],
-      "changelog": [
-        { "version": "3.1.2", "date": "2026-01-22", "changes": ["Fixed Sheriff bug", "Improved Jester win", "Android stability"] }
-      ]
-    },
-    {
-      "id": "mira-api",
-      "name": "Mira API",
-      "author": "All Of Us Mods",
-      "description": "A thorough Among Us modding API. Required by many mods. Provides clean interfaces for creating modifications with full Android support.",
-      "short_description": "Required API library for many mods.",
-      "version": "2.4.1",
-      "game_version": "2026.x",
-      "icon": "",
-      "banner": "",
-      "tags": ["api", "library", "required"],
-      "downloads": 38107,
-      "updated_at": "2026-02-09",
-      "starlight_compatible": true,
-      "astral_format": false,
-      "supports_lua": false,
-      "source_url": "https://github.com/All-Of-Us-Mods/MiraAPI",
-      "discord_url": "https://discord.gg/allofus",
-      "releases": [
-        {
-          "version": "2.4.1",
-          "url": "https://github.com/All-Of-Us-Mods/MiraAPI/releases/download/v2.4.1/MiraAPI.dll",
-          "format": "dll",
-          "size": 512000,
-          "game_version": "2026.x",
-          "release_notes": "Future-proofs patches for AU v17.0.1+",
-          "published_at": "2026-02-09"
-        }
-      ],
-      "changelog": [
-        { "version": "2.4.1", "date": "2026-02-09", "changes": ["Fixed Freeplay patches", "Works on AU v17.0.1+"] }
-      ]
-    },
-    {
-      "id": "super-new-roles",
-      "name": "SuperNewRoles",
-      "author": "SuperNewRoles",
-      "description": "Japan's popular mod with 150+ roles and 1,000+ cosmetics! One of the most feature-rich mods available with full Android support.",
-      "short_description": "150+ roles and 1,000+ cosmetics!",
-      "version": "4.8.0",
-      "game_version": "2026.x",
-      "icon": "",
-      "banner": "",
-      "tags": ["roles", "cosmetics", "popular"],
-      "downloads": 5704,
-      "updated_at": "2026-02-14",
-      "starlight_compatible": true,
-      "astral_format": false,
-      "supports_lua": false,
-      "source_url": "https://github.com/SuperNewRoles/SuperNewRoles",
-      "discord_url": "https://discord.gg/snr",
-      "releases": [
-        {
-          "version": "4.8.0",
-          "url": "https://github.com/SuperNewRoles/SuperNewRoles/releases/download/v4.8.0/SuperNewRoles.zip",
-          "format": "zip",
-          "size": 8388608,
-          "game_version": "2026.x",
-          "release_notes": "10 new roles, 200 cosmetics, improved Android support.",
-          "published_at": "2026-02-14"
-        }
-      ],
-      "changelog": [
-        { "version": "4.8.0", "date": "2026-02-14", "changes": ["10 new roles", "200 cosmetics", "Android improvements"] }
-      ]
-    },
-    {
-      "id": "astral-lua-example",
-      "name": "Speed Hack (Lua Example)",
-      "author": "AstralDev",
-      "description": "A Lua mod example for Astral Launcher. Demonstrates the Lua API: speed hack and basic ESP. A starting template for mod devs.",
-      "short_description": "Example Lua mod: speed + ESP via Astral Lua API.",
-      "version": "1.0.0",
-      "game_version": "2026.x",
-      "icon": "",
-      "banner": "",
-      "tags": ["lua", "example", "speed", "developer"],
-      "downloads": 312,
-      "updated_at": "2026-02-20",
-      "starlight_compatible": false,
-      "astral_format": true,
-      "supports_lua": true,
-      "source_url": "https://github.com/Sc-Rhyan57/AstralData",
-      "discord_url": "",
-      "releases": [
-        {
-          "version": "1.0.0",
-          "url": "https://raw.githubusercontent.com/Sc-Rhyan57/AstralData/main/mods/speed-hack.lua",
-          "format": "lua",
-          "size": 2048,
-          "game_version": "2026.x",
-          "release_notes": "Initial Lua API demo.",
-          "published_at": "2026-02-20"
-        }
-      ],
-      "changelog": [
-        { "version": "1.0.0", "date": "2026-02-20", "changes": ["Initial release", "Speed x2", "Basic ESP"] }
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": "town-of-us-mira",
+    "name": "Town Of Us Mira",
+    "author": "AU Avengers",
+    "version": "3.1.2",
+    "description": "Town of Us Reactivated, rebuilt using MiraAPI with full Android support. 50+ unique roles including Sheriff, Jester, Lover and more.",
+    "downloadUrl": "https://github.com/AU-Avengers/TOU-Mira/releases/download/v3.1.2/TownOfUsMira.dll",
+    "tags": ["roles", "crewmate", "impostor", "miraapi"],
+    "downloads": 19485
+  },
+  {
+    "id": "mira-api",
+    "name": "Mira API",
+    "author": "All Of Us Mods",
+    "version": "2.4.1",
+    "description": "A thorough Among Us modding API. Required by many mods. Provides clean interfaces for creating modifications with full Android support.",
+    "downloadUrl": "https://github.com/All-Of-Us-Mods/MiraAPI/releases/download/v2.4.1/MiraAPI.dll",
+    "tags": ["api", "library", "required"],
+    "downloads": 38107
+  },
+  {
+    "id": "super-new-roles",
+    "name": "SuperNewRoles",
+    "author": "SuperNewRoles",
+    "version": "4.8.0",
+    "description": "Japan's popular mod with 150+ roles and 1,000+ cosmetics! One of the most feature-rich mods available with full Android support.",
+    "downloadUrl": "https://github.com/SuperNewRoles/SuperNewRoles/releases/download/v4.8.0/SuperNewRoles.zip",
+    "tags": ["roles", "cosmetics", "popular"],
+    "downloads": 5704
+  },
+  {
+    "id": "astral-lua-example",
+    "name": "Speed Hack (Lua Example)",
+    "author": "AstralDev",
+    "version": "1.0.0",
+    "description": "A Lua mod example for Astral Launcher. Demonstrates the Lua API: speed hack and basic ESP. A starting template for mod devs.",
+    "downloadUrl": "https://raw.githubusercontent.com/Sc-Rhyan57/AstralData/main/mods/speed-hack.lua",
+    "tags": ["lua", "example", "speed", "developer"],
+    "downloads": 312
+  }
+]
