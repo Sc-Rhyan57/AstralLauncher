@@ -23,15 +23,16 @@ object Prefs {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun getServers(ctx: Context): Flow<List<CustomServer>> =
-        ctx.dataStore.data.map { try { json.decodeFromString(it[KEY_SERVERS] ?: "[]") } catch (_: Exception) { emptyList() } }
+        ctx.dataStore.data.map { runCatching { json.decodeFromString<List<CustomServer>>(it[KEY_SERVERS] ?: "[]") }.getOrDefault(emptyList()) }
 
     suspend fun saveServers(ctx: Context, list: List<CustomServer>) =
         ctx.dataStore.edit { it[KEY_SERVERS] = json.encodeToString(list) }
 
     fun getInstalledMods(ctx: Context): Flow<List<InstalledMod>> =
         ctx.dataStore.data.map {
-            try { json.decodeFromString<List<InstalledModSer>>(it[KEY_INSTALLED_MODS] ?: "[]").map { m -> m.toDomain() } }
-            catch (_: Exception) { emptyList() }
+            runCatching {
+                json.decodeFromString<List<InstalledModSer>>(it[KEY_INSTALLED_MODS] ?: "[]").map { m -> m.toDomain() }
+            }.getOrDefault(emptyList())
         }
 
     suspend fun saveInstalledMods(ctx: Context, list: List<InstalledMod>) =
@@ -50,6 +51,8 @@ data class InstalledModSer(
     val installedAt: Long, val enabled: Boolean, val format: String, val filePath: String
 ) {
     fun toDomain() = InstalledMod(id, name, author, version, installedAt, enabled,
-        try { ModFormat.valueOf(format) } catch (_: Exception) { ModFormat.DLL }, filePath)
-    companion object { fun from(m: InstalledMod) = InstalledModSer(m.id, m.name, m.author, m.version, m.installedAt, m.enabled, m.format.name, m.filePath) }
+        runCatching { ModFormat.valueOf(format) }.getOrDefault(ModFormat.DLL), filePath)
+    companion object {
+        fun from(m: InstalledMod) = InstalledModSer(m.id, m.name, m.author, m.version, m.installedAt, m.enabled, m.format.name, m.filePath)
+    }
 }
