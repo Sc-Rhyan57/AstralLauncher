@@ -48,23 +48,25 @@ fun ExploreScreen(vm: MainViewModel) {
             }
         }
         item {
-            OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Search mods...", color = AL.Muted) }, leadingIcon = { Icon(Icons.Outlined.Search, null, tint = AL.Muted) },
+            OutlinedTextField(value = query, onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                placeholder = { Text("Buscar mods...", color = AL.Muted) },
+                leadingIcon = { Icon(Icons.Outlined.Search, null, tint = AL.Muted) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, null, tint = AL.Muted) } },
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AL.Gold, unfocusedBorderColor = AL.Border, focusedTextColor = AL.White, unfocusedTextColor = AL.White, cursorColor = AL.Gold),
                 shape = RoundedCornerShape(14.dp), singleLine = true)
         }
         if (loading) item { Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AL.Gold) } }
-        else if (error != null) item { EmptyState(Icons.Outlined.WifiOff, "Could not load mods", error ?: "Check connection", action = { GoldButton("Retry", { vm.fetchMods() }) }) }
+        else if (error != null) item { EmptyState(Icons.Outlined.WifiOff, "Não foi possível carregar", error ?: "Verifique a conexão", action = { GoldButton("Tentar novamente", { vm.fetchMods() }) }) }
         else {
             if (query.isEmpty() && trending.isNotEmpty()) {
-                item { SectionHeader("Trending") }
+                item { SectionHeader("Em alta") }
                 item { LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
                     items(trending) { TrendCard(it) { detail = it } }
                 } }
-                item { Spacer(Modifier.height(8.dp)); SectionHeader("All Mods") }
+                item { Spacer(Modifier.height(8.dp)); SectionHeader("Todos os Mods") }
             }
-            if (filtered.isEmpty()) item { EmptyState(Icons.Outlined.SearchOff, "No results", "Try a different search") }
+            if (filtered.isEmpty()) item { EmptyState(Icons.Outlined.SearchOff, "Sem resultados", "Tente outra busca") }
             else items(filtered) { mod -> ModRow2(mod, installed.any { it.id == mod.id }, progress[mod.id], { vm.downloadAndInstall(mod) }) { detail = mod } }
         }
     }
@@ -141,9 +143,9 @@ fun ExploreScreen(vm: MainViewModel) {
                 Text(mod.description, color = AL.MutedL, fontSize = 14.sp, lineHeight = 22.sp)
                 Spacer(Modifier.height(22.dp))
                 when {
-                    progress != null -> { LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = AL.Gold); Spacer(Modifier.height(8.dp)); Text("Downloading $progress%", color = AL.Muted, fontSize = 13.sp) }
-                    isInstalled -> StatusChip("✓ Installed", AL.Success)
-                    else -> GoldButton("Install", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Download)
+                    progress != null -> { LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = AL.Gold); Spacer(Modifier.height(8.dp)); Text("Baixando $progress%", color = AL.Muted, fontSize = 13.sp) }
+                    isInstalled -> StatusChip("✓ Instalado", AL.Success)
+                    else -> GoldButton("Instalar", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Download)
                 }
                 if (mod.changelog.isNotEmpty()) {
                     Spacer(Modifier.height(20.dp)); GoldDivider(); Spacer(Modifier.height(14.dp))
