@@ -5,8 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 private val Context.ds: DataStore<Preferences> by preferencesDataStore("astral_prefs")
 
