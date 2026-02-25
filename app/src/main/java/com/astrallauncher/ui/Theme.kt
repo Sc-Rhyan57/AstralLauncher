@@ -1,25 +1,26 @@
 package com.astrallauncher.ui
 
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-object AL {
-    val Bg        = Color(0xFF080808)
-    val BgCard    = Color(0xFF111111)
-    val Surface   = Color(0xFF161616)
-    val Surface2  = Color(0xFF1C1C1C)
-    val Border    = Color(0xFF222222)
-    val Gold      = Color(0xFFD4A843)
-    val GoldLight = Color(0xFFE8C06A)
-    val GoldDark  = Color(0xFF9E7C2C)
-    val GoldBg    = Color(0xFF1A1508)
-    val GoldSub   = Color(0xFF252010)
-    val White     = Color(0xFFEEEEEE)
-    val Muted     = Color(0xFF666666)
-    val MutedL    = Color(0xFFAAAAAA)
-    val Success   = Color(0xFF4CAF50)
-    val Error     = Color(0xFFE53935)
-    val Warning   = Color(0xFFFFA726)
-    val Info      = Color(0xFF29B6F6)
-    val Purple    = Color(0xFF9C6FFF)
-    val PurpleBg  = Color(0xFF0D0820)
+val Gold   = Color(0xFFFFD700)
+val DarkBg = Color(0xFF0D0D1A)
+val CardBg = Color(0xFF1A1A2E)
+val AccentGreen = Color(0xFF00FF88)
+val TextSecondary = Color(0x88FFFFFF)
+
+private val darkColors = darkColorScheme(
+    primary   = Gold,
+    secondary = AccentGreen,
+    background = DarkBg,
+    surface   = CardBg,
+    onPrimary = Color.Black,
+    onBackground = Color.White,
+    onSurface = Color.White
+)
+
+@Composable
+fun AstralTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = darkColors, content = content)
 }
