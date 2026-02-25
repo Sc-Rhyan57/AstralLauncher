@@ -1,76 +1,34 @@
 package com.astrallauncher.model
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ModRepository(val version: Int = 1, val mods: List<ModEntry> = emptyList())
-
-@Serializable
-data class ModEntry(
+data class Mod(
     val id: String,
     val name: String,
     val author: String,
+    val version: String,
     val description: String,
-    @SerialName("short_description") val shortDescription: String = "",
-    val version: String,
-    @SerialName("game_version") val gameVersion: String = "2026.x",
-    val icon: String = "",
-    val banner: String = "",
-    val screenshots: List<String> = emptyList(),
+    val downloadUrl: String,
     val tags: List<String> = emptyList(),
-    val downloads: Int = 0,
-    @SerialName("updated_at") val updatedAt: String = "",
-    val releases: List<ModRelease> = emptyList(),
-    @SerialName("source_url") val sourceUrl: String = "",
-    @SerialName("discord_url") val discordUrl: String = "",
-    @SerialName("starlight_compatible") val starlightCompatible: Boolean = true,
-    @SerialName("astral_format") val astralFormat: Boolean = false,
-    @SerialName("supports_lua") val supportsLua: Boolean = false,
-    val changelog: List<ChangelogEntry> = emptyList()
+    val downloads: Long = 0L,
+    val changelog: String = ""
 )
-
-@Serializable
-data class ModRelease(
-    val version: String,
-    val url: String,
-    val format: ModFormat = ModFormat.DLL,
-    val size: Long = 0,
-    val checksum: String = "",
-    @SerialName("game_version") val gameVersion: String = "",
-    @SerialName("release_notes") val releaseNotes: String = "",
-    @SerialName("published_at") val publishedAt: String = ""
-)
-
-@Serializable
-enum class ModFormat {
-    @SerialName("dll") DLL,
-    @SerialName("zip") ZIP,
-    @SerialName("amod") AMOD,
-    @SerialName("lua") LUA
-}
-
-@Serializable
-data class ChangelogEntry(val version: String, val date: String, val changes: List<String>)
 
 data class InstalledMod(
     val id: String,
     val name: String,
     val author: String,
     val version: String,
-    val installedAt: Long = System.currentTimeMillis(),
-    val enabled: Boolean = true,
-    val format: ModFormat = ModFormat.DLL,
-    val filePath: String = ""
+    val fileName: String,
+    val enabled: Boolean
 )
 
-@Serializable
-data class CustomServer(
-    val id: String,
-    val name: String,
-    val ip: String,
-    val port: Int = 22023,
-    val region: String = "Custom",
-    val description: String = "",
-    val createdAt: Long = System.currentTimeMillis()
-)
+sealed class PatchStep(val label: String, val progress: Float) {
+    object ReadingApk    : PatchStep("Lendo APK do Among Us", 0.10f)
+    object InjectingSmali: PatchStep("Injetando código do overlay", 0.35f)
+    object PatchingManifest: PatchStep("Patcheando AndroidManifest", 0.50f)
+    object InjectingMods : PatchStep("Injetando mods BepInEx", 0.70f)
+    object Signing       : PatchStep("Assinando APK", 0.85f)
+    object Installing    : PatchStep("Abrindo instalador", 1.00f)
+}
