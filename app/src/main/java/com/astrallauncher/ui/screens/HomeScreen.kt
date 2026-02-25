@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import com.astrallauncher.MainViewModel
 import com.astrallauncher.model.InstalledMod
@@ -45,33 +46,46 @@ fun HomeScreen(vm: MainViewModel) {
     LazyColumn(modifier = Modifier.fillMaxSize().background(AL.Bg), contentPadding = PaddingValues(bottom = 120.dp)) {
         item { HeroCard(auVer = auVer, patchedVer = patchedVer, patchedInstalled = patchedInstalled) }
 
-        item { PatchCard(patch = patch, mods = mods, overlay = overlay, auInstalled = auInstalled,
-            onPatch = { vm.patchAndInstall() },
-            onLaunch = { if (!vm.hasOverlay()) vm.requestOverlay(ctx); vm.launchGame() },
-            onStopOverlay = { vm.stopOverlay() },
-            onReset = { vm.resetPatch() }) }
+        if (!patchedInstalled && auInstalled) {
+            item { FirstPatchBanner(mods.count { it.enabled && it.format == ModFormat.DLL }) }
+        }
+
+        item {
+            PatchCard(
+                patch = patch, mods = mods, overlay = overlay,
+                auInstalled = auInstalled, patchedInstalled = patchedInstalled,
+                onPatch = { vm.patchAndInstall() },
+                onLaunch = {
+                    if (!vm.hasOverlayPermission()) vm.requestOverlayPermission(ctx)
+                    vm.launchGame()
+                },
+                onStopOverlay = { vm.stopOverlay() },
+                onReset = { vm.resetPatch() }
+            )
+        }
 
         item {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SectionHeader(if (mods.isEmpty()) "No mods installed" else "Installed Mods", action = if (mods.isNotEmpty()) "${mods.size}" else null)
+                SectionHeader(if (mods.isEmpty()) "Nenhum mod instalado" else "Mods Instalados", action = if (mods.isNotEmpty()) "${mods.size}" else null)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { apkPicker.launch("application/vnd.android.package-archive") }) {
-                    Icon(Icons.Outlined.FileUpload, "Install APK", tint = AL.Muted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Outlined.FileUpload, "Instalar APK", tint = AL.Muted, modifier = Modifier.size(20.dp))
                 }
             }
         }
 
         if (mods.isEmpty()) {
-            item { EmptyState(Icons.Outlined.Extension, "No mods yet", "Go to Explore to install mods, or tap ↑ to sideload an APK") }
+            item { EmptyState(Icons.Outlined.Extension, "Nenhum mod ainda", "Vá em Explore para instalar mods") }
         } else {
             items(mods) { mod -> ModRow(mod, onToggle = { vm.toggleMod(mod.id) }, onDelete = { vm.deleteMod(mod.id) }) }
         }
 
-        item {
-            status?.let { s ->
+        status?.let { s ->
+            item {
                 Spacer(Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp))
-                    .background(AL.GoldBg).border(BorderStroke(0.5.dp, AL.GoldDark.copy(0.5f)), RoundedCornerShape(12.dp)).padding(12.dp),
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(12.dp)).background(AL.GoldBg)
+                    .border(BorderStroke(0.5.dp, AL.GoldDark.copy(0.5f)), RoundedCornerShape(12.dp)).padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Info, null, tint = AL.Gold, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
@@ -86,10 +100,41 @@ fun HomeScreen(vm: MainViewModel) {
 }
 
 @Composable
+fun FirstPatchBanner(dllCount: Int) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+        .clip(RoundedCornerShape(16.dp))
+        .background(Brush.horizontalGradient(listOf(Color(0xFF0D0820), Color(0xFF1A0830))))
+        .border(BorderStroke(1.dp, AL.Purple.copy(0.5f)), RoundedCornerShape(16.dp))
+        .padding(16.dp)) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.NewReleases, null, tint = AL.Purple, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Primeiro uso", color = AL.Purple, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "O Among Us precisa ser patcheado antes do primeiro uso. " +
+                "Isso clona o jogo com um novo package ID (${com.astrallauncher.util.Constants.PATCHED_PACKAGE}) " +
+                "e injeta o BepInEx para suporte a mods.\n\n" +
+                "• Instale mods em Explore\n" +
+                "• Clique em ⚙ Patch\n" +
+                "• Siga o prompt de instalação\n" +
+                "• Clique em ▶ Launch para abrir o jogo patcheado",
+                color = AL.MutedL, fontSize = 12.sp, lineHeight = 18.sp
+            )
+            if (dllCount > 0) {
+                Spacer(Modifier.height(6.dp))
+                StatusChip("$dllCount mod(s) prontos para injeção", AL.Gold)
+            }
+        }
+    }
+}
+
+@Composable
 fun HeroCard(auVer: String, patchedVer: String, patchedInstalled: Boolean) {
     val t = rememberInfiniteTransition(label = "h")
     val glow by t.animateFloat(0.2f, 0.8f, infiniteRepeatable(tween(2200, easing = EaseInOutSine), RepeatMode.Reverse), label = "g")
-
     Box(modifier = Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp))
         .background(Brush.verticalGradient(listOf(AL.GoldBg, Color(0xFF0A0A0A))))
         .border(BorderStroke(1.dp, AL.Gold.copy(glow)), RoundedCornerShape(22.dp)).padding(20.dp)) {
@@ -107,9 +152,9 @@ fun HeroCard(auVer: String, patchedVer: String, patchedInstalled: Boolean) {
             }
             Spacer(Modifier.height(16.dp)); GoldDivider(); Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                InfoPill("AU Version", auVer)
-                InfoPill("Patched", if (patchedInstalled) "✓ $patchedVer" else "✗ None", if (patchedInstalled) AL.Success else AL.Muted)
-                InfoPill("Platform", "Android")
+                InfoPill("AU Original", auVer)
+                InfoPill("Patcheado", if (patchedInstalled) "✓ $patchedVer" else "✗ Não instalado", if (patchedInstalled) AL.Success else AL.Error)
+                InfoPill("Plataforma", "Android")
             }
         }
     }
@@ -124,8 +169,17 @@ fun InfoPill(label: String, value: String, valueColor: Color = AL.White) {
 }
 
 @Composable
-fun PatchCard(patch: MainViewModel.PatchState, mods: List<InstalledMod>, overlay: Boolean,
-              auInstalled: Boolean, onPatch: () -> Unit, onLaunch: () -> Unit, onStopOverlay: () -> Unit, onReset: () -> Unit) {
+fun PatchCard(
+    patch: MainViewModel.PatchState,
+    mods: List<InstalledMod>,
+    overlay: Boolean,
+    auInstalled: Boolean,
+    patchedInstalled: Boolean,
+    onPatch: () -> Unit,
+    onLaunch: () -> Unit,
+    onStopOverlay: () -> Unit,
+    onReset: () -> Unit
+) {
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
         .clip(RoundedCornerShape(18.dp)).background(AL.BgCard)
         .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(18.dp)).padding(16.dp)) {
@@ -144,33 +198,42 @@ fun PatchCard(patch: MainViewModel.PatchState, mods: List<InstalledMod>, overlay
             is MainViewModel.PatchState.Err -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.ErrorOutline, null, tint = AL.Error, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp)); Text("Patch Failed", color = AL.Error, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp)); Text("Patch falhou", color = AL.Error, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
                 Spacer(Modifier.height(6.dp)); Text(patch.msg, color = AL.Muted, fontSize = 12.sp)
-                Spacer(Modifier.height(12.dp)); GhostButton("Dismiss", onClick = onReset, modifier = Modifier.fillMaxWidth(), color = AL.Error)
+                Spacer(Modifier.height(12.dp)); GhostButton("Fechar", onClick = onReset, modifier = Modifier.fillMaxWidth(), color = AL.Error)
             }
             is MainViewModel.PatchState.Done -> Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.CheckCircleOutline, null, tint = AL.Success, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp)); Text("Patch Complete!", color = AL.Success, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp)); Text("Patch concluído!", color = AL.Success, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
-                Spacer(Modifier.height(6.dp)); Text("Follow the install prompt to apply.", color = AL.Muted, fontSize = 12.sp)
-                Spacer(Modifier.height(12.dp)); GhostButton("Done", onClick = onReset, modifier = Modifier.fillMaxWidth(), color = AL.Success)
+                Spacer(Modifier.height(6.dp)); Text("Siga o prompt para instalar o jogo patcheado.", color = AL.Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(12.dp)); GhostButton("OK", onClick = onReset, modifier = Modifier.fillMaxWidth(), color = AL.Success)
             }
             else -> Column {
                 val dllCount = mods.count { it.enabled && it.format == ModFormat.DLL }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GoldButton("▶ Launch", onClick = onLaunch, modifier = Modifier.weight(1f), icon = Icons.Outlined.RocketLaunch, enabled = auInstalled)
+                    GoldButton("▶ Launch", onClick = onLaunch, modifier = Modifier.weight(1f),
+                        icon = Icons.Outlined.RocketLaunch, enabled = auInstalled)
                     PurpleButton("⚙ Patch", onClick = onPatch, modifier = Modifier.wrapContentWidth(),
-                        icon = Icons.Outlined.Build, enabled = auInstalled && dllCount > 0)
+                        icon = Icons.Outlined.Build, enabled = auInstalled)
                 }
-                if (dllCount > 0) { Spacer(Modifier.height(6.dp)); Text("$dllCount DLL mod(s) queued for injection", color = AL.Muted, fontSize = 11.sp) }
-                if (overlay) { Spacer(Modifier.height(8.dp)); GhostButton("Stop Overlay", onClick = onStopOverlay, modifier = Modifier.fillMaxWidth(), color = AL.Error) }
+                if (!patchedInstalled) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Warning, null, tint = AL.Warning, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Jogo ainda não patcheado — Launch abre o AU original", color = AL.Warning, fontSize = 11.sp)
+                    }
+                }
+                if (dllCount > 0) { Spacer(Modifier.height(6.dp)); Text("$dllCount mod(s) DLL prontos para injeção", color = AL.Muted, fontSize = 11.sp) }
+                if (overlay) { Spacer(Modifier.height(8.dp)); GhostButton("Parar Overlay", onClick = onStopOverlay, modifier = Modifier.fillMaxWidth(), color = AL.Error) }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Info, null, tint = AL.Muted, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Patch repackages AU with a new package ID (Starlight-style)", color = AL.Muted, fontSize = 10.sp)
+                    Text("Patch clona AU com novo package ID + BepInEx (estilo Starlight)", color = AL.Muted, fontSize = 10.sp)
                 }
             }
         }
@@ -182,8 +245,8 @@ fun ModRow(mod: InstalledMod, onToggle: () -> Unit, onDelete: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp)
         .clip(RoundedCornerShape(14.dp)).background(AL.BgCard)
-        .border(BorderStroke(0.5.dp, if (mod.enabled) AL.GoldDark.copy(0.4f) else AL.Border), RoundedCornerShape(14.dp)).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
+        .border(BorderStroke(0.5.dp, if (mod.enabled) AL.GoldDark.copy(0.4f) else AL.Border), RoundedCornerShape(14.dp))
+        .padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(if (mod.enabled) AL.GoldBg else AL.Surface), contentAlignment = Alignment.Center) {
             Icon(if (mod.format == ModFormat.LUA) Icons.Outlined.Code else Icons.Outlined.Extension, null,
                 tint = if (mod.enabled) AL.Gold else AL.Muted, modifier = Modifier.size(22.dp))
@@ -205,7 +268,8 @@ fun ModRow(mod: InstalledMod, onToggle: () -> Unit, onDelete: () -> Unit) {
         }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, containerColor = AL.Surface,
-        title = { Text("Remove mod?", color = AL.White) }, text = { Text("'${mod.name}' will be removed.", color = AL.Muted) },
-        confirmButton = { TextButton(onClick = { onDelete(); confirm = false }) { Text("Remove", color = AL.Error) } },
-        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel", color = AL.Muted) } })
+        title = { Text("Remover mod?", color = AL.White) },
+        text = { Text("'${mod.name}' será removido.", color = AL.Muted) },
+        confirmButton = { TextButton(onClick = { onDelete(); confirm = false }) { Text("Remover", color = AL.Error) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar", color = AL.Muted) } })
 }
