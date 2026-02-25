@@ -9,7 +9,6 @@ import kotlinx.coroutines.withContext
 import java.io.*
 import java.security.*
 import java.security.cert.X509Certificate
-import java.util.jar.*
 import java.util.zip.*
 
 private const val TAG = "ApkPatcher"
@@ -71,15 +70,16 @@ class ApkPatcher(private val context: Context) {
 
                     when {
                         name == "AndroidManifest.xml" -> {
-                            val bytes = zin.readBytes()
+                            val bytes   = zin.readBytes()
                             val patched = patchManifest(bytes)
                             zout.putNextEntry(ZipEntry(name))
                             zout.write(patched)
                         }
                         name == "META-INF/MANIFEST.MF" ||
-                        name == "META-INF/CERT.SF" ||
-                        name == "META-INF/CERT.RSA" ||
-                        name.startsWith("META-INF/") && (name.endsWith(".SF") || name.endsWith(".RSA") || name.endsWith(".DSA")) -> {
+                        name == "META-INF/CERT.SF"     ||
+                        name == "META-INF/CERT.RSA"    ||
+                        (name.startsWith("META-INF/") &&
+                         (name.endsWith(".SF") || name.endsWith(".RSA") || name.endsWith(".DSA"))) -> {
                             zin.closeEntry()
                             entry = zin.nextEntry
                             continue
@@ -105,7 +105,7 @@ class ApkPatcher(private val context: Context) {
         if (bytes.size < 8) return bytes
 
         val magic = (bytes[0].toInt() and 0xFF) or
-                   ((bytes[1].toInt() and 0xFF) shl 8) or
+                   ((bytes[1].toInt() and 0xFF) shl 8)  or
                    ((bytes[2].toInt() and 0xFF) shl 16) or
                    ((bytes[3].toInt() and 0xFF) shl 24)
 
@@ -183,10 +183,9 @@ class ApkPatcher(private val context: Context) {
             val keystoreStream = context.assets.open("astral_debug.jks")
             val ks = KeyStore.getInstance("JKS")
             ks.load(keystoreStream, "astral123".toCharArray())
-            val alias = ks.aliases().nextElement()
+            val alias   = ks.aliases().nextElement()
             val privKey = ks.getKey(alias, "astral123".toCharArray()) as PrivateKey
-            val cert = ks.getCertificateChain(alias).map { it as X509Certificate }
-
+            val cert    = ks.getCertificateChain(alias).map { it as X509Certificate }
             AppLogger.i(TAG, "Assinando com keystore: $alias")
             signWithKey(input, output, privKey, cert)
         } catch (e: Exception) {
@@ -214,7 +213,7 @@ class ApkPatcher(private val context: Context) {
     private fun hasPatchedAu(): Boolean {
         return try {
             val info = context.packageManager.getApplicationInfo(Constants.AU_PACKAGE, 0)
-            val apk = File(info.sourceDir)
+            val apk  = File(info.sourceDir)
             ZipFile(apk).use { zip ->
                 zip.getEntry("assets/BepInEx") != null ||
                 zip.getEntry("assets/BepInEx/core/BepInEx.IL2CPP.dll") != null
