@@ -14,33 +14,26 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 object AmongUsHelper {
-    const val AU_PACKAGE = "com.innersloth.spacemafia"
-    const val BEPINEX_PLUGINS_SUBPATH = "BepInEx/plugins"
+    const val AU_PACKAGE               = "com.innersloth.spacemafia"
+    const val BEPINEX_PLUGINS_SUBPATH  = "BepInEx/plugins"
 
     fun isInstalled(ctx: Context): Boolean {
         return try {
             ctx.packageManager.getPackageInfo(AU_PACKAGE, 0)
             true
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
+        } catch (e: PackageManager.NameNotFoundException) { false }
     }
 
     fun getVersion(ctx: Context): String {
         return try {
-            val info = ctx.packageManager.getPackageInfo(AU_PACKAGE, 0)
-            info.versionName ?: "Unknown"
-        } catch (e: Exception) {
-            "Unknown"
-        }
+            ctx.packageManager.getPackageInfo(AU_PACKAGE, 0).versionName ?: "Unknown"
+        } catch (e: Exception) { "Unknown" }
     }
 
     fun getApkPath(ctx: Context): String? {
         return try {
             ctx.packageManager.getApplicationInfo(AU_PACKAGE, 0).sourceDir
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     fun launch(ctx: Context) {
@@ -52,29 +45,22 @@ object AmongUsHelper {
     }
 
     fun openPlayStore(ctx: Context) {
-        val uri = Uri.parse("market://details?id=$AU_PACKAGE")
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val uri    = Uri.parse("market://details?id=$AU_PACKAGE")
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         try {
             ctx.startActivity(intent)
         } catch (e: Exception) {
-            val webIntent = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://play.google.com/store/apps/details?id=$AU_PACKAGE")
-            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-            ctx.startActivity(webIntent)
+            ctx.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$AU_PACKAGE"))
+                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            )
         }
     }
 }
 
 object ModInjector {
 
-    fun injectDll(
-        ctx: Context,
-        dllFile: File,
-        onDone: (success: Boolean, message: String) -> Unit
-    ) {
+    fun injectDll(ctx: Context, dllFile: File, onDone: (success: Boolean, message: String) -> Unit) {
         Thread {
             try {
                 val auApkPath = AmongUsHelper.getApkPath(ctx)
@@ -85,7 +71,7 @@ object ModInjector {
                 workDir.mkdirs()
 
                 val originalApk = File(auApkPath)
-                val patchedApk = File(workDir, "patched.apk")
+                val patchedApk  = File(workDir, "patched.apk")
 
                 injectDllIntoApk(originalApk, dllFile, patchedApk, ctx)
 
@@ -124,12 +110,11 @@ object ModInjector {
         } else {
             Uri.fromFile(apk)
         }
-        val intent = Intent(Intent.ACTION_VIEW).apply {
+        ctx.startActivity(Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        ctx.startActivity(intent)
+        })
     }
 
     fun extractAmod(amodFile: File, destDir: File): List<File> {
@@ -155,9 +140,11 @@ object ApkSigner {
     fun signApk(ctx: Context, inputApk: File, outputApk: File) {
         val ksFile = File(ctx.filesDir, "astral_debug.jks")
         if (!ksFile.exists()) {
-            ctx.assets.open("astral_debug.jks").use { src ->
-                FileOutputStream(ksFile).use { dst -> src.copyTo(dst) }
-            }
+            try {
+                ctx.assets.open("astral_debug.jks").use { src ->
+                    FileOutputStream(ksFile).use { dst -> src.copyTo(dst) }
+                }
+            } catch (_: Exception) {}
         }
         outputApk.writeBytes(inputApk.readBytes())
     }
