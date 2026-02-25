@@ -24,11 +24,20 @@ data class InstalledMod(
     val enabled: Boolean
 )
 
+data class CustomServer(
+    val id: String,
+    val name: String,
+    val ip: String,
+    val port: Int,
+    val region: String,
+    val description: String
+)
+
 sealed class PatchStep(val label: String, val progress: Float) {
-    object ReadingApk    : PatchStep("Lendo APK do Among Us", 0.10f)
-    object InjectingSmali: PatchStep("Injetando código do overlay", 0.35f)
-    object PatchingManifest: PatchStep("Patcheando AndroidManifest", 0.50f)
-    object InjectingMods : PatchStep("Injetando mods BepInEx", 0.70f)
-    object Signing       : PatchStep("Assinando APK", 0.85f)
-    object Installing    : PatchStep("Abrindo instalador", 1.00f)
+    object ReadingApk       : PatchStep("Lendo APK do Among Us", 0.10f)
+    object InjectingSmali   : PatchStep("Injetando código do overlay", 0.35f)
+    object PatchingManifest : PatchStep("Patcheando AndroidManifest", 0.50f)
+    object InjectingMods    : PatchStep("Injetando mods BepInEx", 0.70f)
+    object Signing          : PatchStep("Assinando APK", 0.85f)
+    object Installing       : PatchStep("Abrindo instalador", 1.00f)
 }
