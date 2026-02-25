@@ -1,501 +1,605 @@
 package com.astrallauncher.service
 
 import android.app.*
+import android.content.Context
 import android.content.Intent
 import android.graphics.*
-import android.graphics.drawable.GradientDrawable
 import android.os.*
 import android.view.*
+import android.view.animation.DecelerateInterpolator
 import android.widget.*
 import androidx.core.app.NotificationCompat
-import com.astrallauncher.bridge.AstralBridgeClient
+import com.astrallauncher.MainActivity
+import com.astrallauncher.model.InstalledMod
 import com.astrallauncher.util.AppLogger
-import kotlin.math.abs
+import com.astrallauncher.util.Constants
+import com.astrallauncher.util.Prefs
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
+import java.io.File
+
+private const val TAG = "OverlayService"
+private const val NOTIF_ID = 42
+private const val CHANNEL_ID = "astral_overlay"
 
 class OverlayService : Service() {
 
-    companion object {
-        const val CHANNEL_ID = "astral_overlay"
-        const val EXTRA_MOD = "mod_name"
-        const val EXTRA_AU_VER = "au_version"
-        const val EXTRA_MODS_COUNT = "mods_count"
-        var instance: OverlayService? = null
-
-        private val C_BG = Color.parseColor("#F2080808")
-        private val C_PANEL = Color.parseColor("#EE101010")
-        private val C_CARD = Color.parseColor("#EE181818")
-        private val C_GOLD = Color.parseColor("#D4A843")
-        private val C_PURPLE = Color.parseColor("#9C6FFF")
-        private val C_GREEN = Color.parseColor("#4CAF50")
-        private val C_RED = Color.parseColor("#E53935")
-        private val C_MUTED = Color.parseColor("#666666")
-        private val C_WHITE = Color.parseColor("#EEEEEE")
-        private val C_BORDER = Color.parseColor("#252525")
-    }
-
-    private val TAG = "OverlayService"
     private lateinit var wm: WindowManager
-    private val bridge = AstralBridgeClient()
     private var bubbleView: View? = null
     private var panelView: View? = null
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     private var panelVisible = false
-    private var bubbleParams: WindowManager.LayoutParams? = null
+    private var activeTab = 0
 
-    private val hackStates = mutableMapOf<String, Boolean>()
+    companion object {
+        fun start(ctx: Context) {
+            val i = Intent(ctx, OverlayService::class.java)
+            ctx.startForegroundService(i)
+        }
+        fun stop(ctx: Context) {
+            ctx.stopService(Intent(ctx, OverlayService::class.java))
+        }
+    }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?) = null
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        startForeground(1, buildNotification())
-        setupBridge()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val mod = intent?.getStringExtra(EXTRA_MOD) ?: "Vanilla"
-        val ver = intent?.getStringExtra(EXTRA_AU_VER) ?: "?"
-        val cnt = intent?.getIntExtra(EXTRA_MODS_COUNT, 0) ?: 0
-        removeBubble(); removePanel()
-        showBubble(mod, ver, cnt)
-        bridge.connect()
-        return START_STICKY
-    }
-
-    private fun setupBridge() {
-        bridge.onConnected = {
-            AppLogger.i(TAG, "Bridge conectado")
-            bubbleView?.post { updateBubbleBadge(true) }
-        }
-        bridge.onDisconnected = {
-            AppLogger.i(TAG, "Bridge desconectado")
-            bubbleView?.post { updateBubbleBadge(false) }
-        }
-    }
-
-    private val overlayType get() =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
-
-    private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
-    private fun sp(n: Float) = n * resources.displayMetrics.scaledDensity
-
-    private fun showBubble(mod: String, ver: String, cnt: Int) {
-        val params = WindowManager.LayoutParams(dp(60), dp(60), overlayType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply {
-            gravity = Gravity.TOP or Gravity.END; x = dp(12); y = dp(120)
-        }
-        bubbleParams = params
-
-        val frame = FrameLayout(this)
-
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#CC030303"))
-            setStroke(dp(2), C_GOLD)
-        }
-
-        val label = TextView(this).apply {
-            text = "✦"; textSize = 22f; gravity = Gravity.CENTER
-            setTextColor(C_GOLD); typeface = Typeface.DEFAULT_BOLD; background = bg
-        }
-        frame.addView(label, FrameLayout.LayoutParams(dp(56), dp(56)).apply { gravity = Gravity.CENTER })
-
-        val badge = TextView(this).apply {
-            visibility = View.GONE
-            text = "●"; textSize = 9f; setTextColor(C_GREEN)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL; setColor(Color.parseColor("#0D1B0D"))
-                setStroke(1, C_GREEN)
-            }
-            setPadding(dp(3), dp(3), dp(3), dp(3))
-        }
-        frame.addView(badge, FrameLayout.LayoutParams(dp(14), dp(14)).apply {
-            gravity = Gravity.BOTTOM or Gravity.END; marginEnd = dp(3); bottomMargin = dp(3)
-        })
-        frame.tag = badge
-
-        var sx = 0f; var sy = 0f; var ox = 0; var oy = 0; var moved = false
-        frame.setOnTouchListener { v, ev ->
-            when (ev.action) {
-                MotionEvent.ACTION_DOWN -> { sx = ev.rawX; sy = ev.rawY; ox = params.x; oy = params.y; moved = false; true }
-                MotionEvent.ACTION_MOVE -> {
-                    if (abs(ev.rawX - sx) > 8 || abs(ev.rawY - sy) > 8) moved = true
-                    params.x = (ox - (ev.rawX - sx)).toInt().coerceAtLeast(0)
-                    params.y = (oy + (ev.rawY - sy)).toInt().coerceAtLeast(0)
-                    runCatching { wm.updateViewLayout(v, params) }; true
-                }
-                MotionEvent.ACTION_UP -> { if (!moved) togglePanel(mod, ver, cnt); true }
-                else -> false
-            }
-        }
-
-        frame.scaleX = 0f; frame.scaleY = 0f
-        wm.addView(frame, params)
-        bubbleView = frame
-        frame.animate().scaleX(1f).scaleY(1f).setDuration(250).start()
-    }
-
-    private fun updateBubbleBadge(connected: Boolean) {
-        (bubbleView?.tag as? TextView)?.visibility = if (connected) View.VISIBLE else View.GONE
-    }
-
-    private fun togglePanel(mod: String, ver: String, cnt: Int) {
-        if (panelVisible) removePanel() else showPanel(mod, ver, cnt)
-    }
-
-    private fun showPanel(mod: String, ver: String, cnt: Int) {
-        val bpY = bubbleParams?.y ?: dp(120)
-        val params = WindowManager.LayoutParams(
-            dp(320), WindowManager.LayoutParams.WRAP_CONTENT, overlayType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.END; x = dp(12); y = bpY + dp(70)
-        }
-
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = roundRect(dp(18), C_PANEL, C_BORDER, 1)
-            setPadding(dp(14), dp(12), dp(14), dp(14))
-            elevation = dp(8).toFloat()
-        }
-
-        root.addView(buildPanelHeader())
-        root.addView(divider())
-
-        val hacksView = buildHacksPanel()
-        val scriptView = buildScriptPanel()
-        val infoView = buildInfoPanel(mod, ver, cnt)
-
-        hacksView.visibility = View.VISIBLE
-        scriptView.visibility = View.GONE
-        infoView.visibility = View.GONE
-
-        val tabRow = buildTabRow(
-            listOf("⚡ Hacks", "▶ Script", "ℹ Info"),
-            listOf(hacksView, scriptView, infoView)
-        )
-        root.addView(tabRow)
-        root.addView(hacksView)
-        root.addView(scriptView)
-        root.addView(infoView)
-
-        root.alpha = 0f; root.translationY = -dp(16).toFloat()
-        wm.addView(root, params)
-        panelView = root; panelVisible = true
-        root.animate().alpha(1f).translationY(0f).setDuration(200).start()
-    }
-
-    private fun buildPanelHeader(): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(10))
-        }
-        row.addView(TextView(this).apply {
-            text = "✦  Astral"; textSize = 16f; setTextColor(C_GOLD); typeface = Typeface.DEFAULT_BOLD
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        })
-        val connBadge = TextView(this).apply {
-            text = if (bridge.isConnected) "● LIVE" else "○ OFF"
-            textSize = 9f
-            setTextColor(if (bridge.isConnected) C_GREEN else C_MUTED)
-            setPadding(dp(5), dp(2), dp(5), dp(2))
-            background = roundRect(dp(4),
-                if (bridge.isConnected) Color.parseColor("#0A1F0A") else Color.parseColor("#111111"),
-                if (bridge.isConnected) C_GREEN else C_MUTED, 1)
-        }
-        row.addView(connBadge)
-        row.addView(space(dp(8), 1))
-        row.addView(TextView(this).apply {
-            text = "✕"; textSize = 16f; setTextColor(C_MUTED); gravity = Gravity.CENTER
-            setPadding(dp(4), dp(0), dp(4), dp(0))
-            setOnClickListener { removePanel() }
-        })
-        return row
-    }
-
-    private fun buildTabRow(labels: List<String>, views: List<View>): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = roundRect(dp(10), Color.parseColor("#0C0C0C"), C_BORDER, 1)
-            setPadding(dp(3), dp(3), dp(3), dp(3))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = dp(10) }
-        }
-        val btns = mutableListOf<TextView>()
-        fun activate(idx: Int) {
-            btns.forEachIndexed { i, b ->
-                if (i == idx) {
-                    b.setTextColor(C_WHITE)
-                    b.background = roundRect(dp(8), Color.parseColor("#1A1030"), C_PURPLE.withAlpha(90), 1)
-                } else {
-                    b.setTextColor(C_MUTED); b.background = null
-                }
-            }
-            views.forEachIndexed { i, v -> v.visibility = if (i == idx) View.VISIBLE else View.GONE }
-        }
-        labels.forEachIndexed { i, label ->
-            val btn = TextView(this).apply {
-                text = label; textSize = 11f; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
-                setPadding(dp(4), dp(8), dp(4), dp(8))
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                setOnClickListener { activate(i) }
-            }
-            btns.add(btn); row.addView(btn)
-        }
-        activate(0)
-        return row
-    }
-
-    private fun buildHacksPanel(): LinearLayout {
-        val v = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        data class HackDef(val key: String, val label: String, val icon: String,
-                           val onEnable: () -> Unit, val onDisable: () -> Unit)
-
-        val hacks = listOf(
-            HackDef("speed", "Speed x2.5", "⚡", { bridge.speedOn(2.5) }, { bridge.speedOff() }),
-            HackDef("noclip", "NoClip", "👻", { bridge.noClipOn() }, { bridge.noClipOff() }),
-            HackDef("godmode", "God Mode", "🛡", { bridge.godModeOn() }, { bridge.godModeOff() }),
-            HackDef("killcd", "Kill CD Zero", "🔪", { bridge.killCooldownOn() }, { bridge.killCooldownOff() }),
-            HackDef("reveal", "ESP Impostores", "👁", { bridge.revealOn() }, { bridge.revealOff() }),
-            HackDef("vision", "Visão x10", "🔭", { bridge.visionOn(10.0) }, { bridge.visionOff() })
-        )
-
-        val grid = GridLayout(this).apply {
-            columnCount = 2; rowCount = (hacks.size + 1) / 2
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        hacks.forEach { hack ->
-            val isActive = hackStates[hack.key] == true
-            val card = buildHackToggle(hack.key, hack.icon, hack.label, isActive, hack.onEnable, hack.onDisable)
-            val lp = GridLayout.LayoutParams().apply {
-                width = 0; height = GridLayout.LayoutParams.WRAP_CONTENT
-                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                setMargins(dp(3), dp(3), dp(3), dp(3))
-            }
-            grid.addView(card, lp)
-        }
-        v.addView(grid)
-        v.addView(space(1, dp(8)))
-
-        val tasksBtn = actionBtn("✔ Completar Tasks", C_GREEN) { bridge.completeTasks() }
-        v.addView(tasksBtn)
-        v.addView(space(1, dp(6)))
-
-        val tpRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val tpX = editField("X", "0.0"); val tpY = editField("Y", "0.0")
-        val tpBtn = actionBtn("Teleport", C_PURPLE) {
-            val x = tpX.text.toString().toDoubleOrNull() ?: 0.0
-            val y = tpY.text.toString().toDoubleOrNull() ?: 0.0
-            bridge.teleport(x, y)
-        }
-        tpRow.addView(tpX, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(4) })
-        tpRow.addView(tpY, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(4) })
-        tpRow.addView(tpBtn, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        v.addView(tpRow)
-        return v
-    }
-
-    private fun buildHackToggle(
-        key: String, icon: String, label: String, initActive: Boolean,
-        onEnable: () -> Unit, onDisable: () -> Unit
-    ): View {
-        var active = initActive
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-            setPadding(dp(8), dp(10), dp(8), dp(10))
-            background = roundRect(dp(12),
-                if (active) Color.parseColor("#0D1A2A") else C_CARD,
-                if (active) C_PURPLE else C_BORDER, 1)
-        }
-        val iconTv = TextView(this).apply { text = icon; textSize = 20f; gravity = Gravity.CENTER }
-        val labelTv = TextView(this).apply {
-            text = label; textSize = 10f; setTextColor(if (active) C_WHITE else C_MUTED)
-            gravity = Gravity.CENTER; setPadding(0, dp(4), 0, 0)
-        }
-        val statusDot = View(this).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(if (active) C_GREEN else C_MUTED)
-            }
-            layoutParams = LinearLayout.LayoutParams(dp(6), dp(6)).apply { topMargin = dp(4) }
-        }
-        card.addView(iconTv); card.addView(labelTv); card.addView(statusDot)
-        card.setOnClickListener {
-            active = !active
-            hackStates[key] = active
-            if (active) onEnable() else onDisable()
-            card.background = roundRect(dp(12),
-                if (active) Color.parseColor("#0D1A2A") else C_CARD,
-                if (active) C_PURPLE else C_BORDER, 1)
-            labelTv.setTextColor(if (active) C_WHITE else C_MUTED)
-            (statusDot.background as? GradientDrawable)?.setColor(if (active) C_GREEN else C_MUTED)
-        }
-        return card
-    }
-
-    private fun buildScriptPanel(): LinearLayout {
-        val v = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-
-        val termHeader = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(6))
-        }
-        listOf(Color.parseColor("#FF5F56"), Color.parseColor("#FFBD2E"), Color.parseColor("#27C93F"))
-            .forEach { c ->
-                termHeader.addView(View(this).apply {
-                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(c) }
-                    layoutParams = LinearLayout.LayoutParams(dp(9), dp(9)).apply { marginEnd = dp(5) }
-                })
-            }
-        termHeader.addView(TextView(this).apply {
-            text = "script.lua"; textSize = 10f; setTextColor(C_MUTED); typeface = Typeface.MONOSPACE
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        })
-        termHeader.addView(TextView(this).apply { text = "Lua"; textSize = 9f; setTextColor(C_PURPLE) })
-        v.addView(termHeader)
-
-        val editor = EditText(this).apply {
-            hint = "-- speed(2.5)\n-- noclip_on()\n-- reveal()"
-            setHintTextColor(Color.parseColor("#2A2A2A"))
-            setTextColor(Color.parseColor("#E6EDF3"))
-            textSize = 11.5f; typeface = Typeface.MONOSPACE; minLines = 5; maxLines = 8
-            background = roundRect(dp(8), Color.parseColor("#0D1117"), Color.parseColor("#1F1F3A"), 1)
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-        }
-        v.addView(editor, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        v.addView(space(1, dp(8)))
-
-        val outputTv = TextView(this).apply {
-            visibility = View.GONE; typeface = Typeface.MONOSPACE; textSize = 10f
-            setTextColor(Color.parseColor("#7EE787"))
-            background = roundRect(dp(8), Color.parseColor("#0A110A"), Color.parseColor("#1A2A1A"), 1)
-            setPadding(dp(8), dp(6), dp(8), dp(6))
-            maxLines = 5
-        }
-        v.addView(outputTv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        v.addView(space(1, dp(6)))
-
-        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val runBtn = chipBtn("▶  Run", C_PURPLE)
-        val clearBtn = chipBtn("✕  Clear", Color.parseColor("#222222"))
-        runBtn.setOnClickListener {
-            val script = editor.text.toString().trim()
-            if (script.isEmpty()) return@setOnClickListener
-            val result = bridge.executeScript(script)
-            outputTv.text = result
-            outputTv.visibility = View.VISIBLE
-        }
-        clearBtn.setOnClickListener { editor.setText(""); outputTv.visibility = View.GONE }
-        btnRow.addView(runBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(6) })
-        btnRow.addView(clearBtn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        v.addView(btnRow)
-        return v
-    }
-
-    private fun buildInfoPanel(mod: String, ver: String, cnt: Int): LinearLayout {
-        val v = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-        listOf(
-            "Bridge" to (if (bridge.isConnected) "● Conectado" else "○ Desconectado"),
-            "Mod ativo" to mod,
-            "Among Us" to ver,
-            "Mods" to "$cnt carregados",
-            "Launcher" to "Astral v1.0.0"
-        ).forEach { (k, value) ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(4)) }
-            row.addView(TextView(this).apply {
-                text = k; textSize = 11f; setTextColor(C_MUTED)
-                layoutParams = LinearLayout.LayoutParams(dp(80), LinearLayout.LayoutParams.WRAP_CONTENT)
-            })
-            row.addView(TextView(this).apply {
-                text = value; textSize = 11f
-                setTextColor(when {
-                    value.startsWith("●") -> C_GREEN
-                    value.startsWith("○") -> C_MUTED
-                    k == "Mod ativo" -> C_GOLD
-                    else -> C_WHITE
-                })
-                typeface = Typeface.DEFAULT_BOLD
-            })
-            v.addView(row)
-        }
-        return v
-    }
-
-    private fun actionBtn(text: String, color: Int, onClick: () -> Unit): TextView =
-        TextView(this).apply {
-            this.text = text; textSize = 12f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD; setPadding(dp(8), dp(10), dp(8), dp(10))
-            background = roundRect(dp(10), color.withAlpha(30), color.withAlpha(120), 1)
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            setOnClickListener { onClick() }
-        }
-
-    private fun chipBtn(text: String, bg: Int): TextView =
-        TextView(this).apply {
-            this.text = text; textSize = 12f; gravity = Gravity.CENTER; setTextColor(C_WHITE)
-            typeface = Typeface.DEFAULT_BOLD; setPadding(dp(8), dp(9), dp(8), dp(9))
-            background = roundRect(dp(8), bg, Color.TRANSPARENT, 0)
-        }
-
-    private fun editField(hint: String, default: String): EditText =
-        EditText(this).apply {
-            this.hint = hint; setText(default)
-            setTextColor(C_WHITE); setHintTextColor(C_MUTED); textSize = 12f
-            background = roundRect(dp(8), C_CARD, C_BORDER, 1)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-        }
-
-    private fun divider(): View = View(this).apply {
-        setBackgroundColor(C_BORDER)
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { topMargin = dp(2); bottomMargin = dp(10) }
-    }
-
-    private fun space(w: Int, h: Int): View = View(this).apply {
-        layoutParams = LinearLayout.LayoutParams(w, h)
-    }
-
-    private fun roundRect(radius: Int, fill: Int, stroke: Int, strokeW: Int): GradientDrawable =
-        GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE; cornerRadius = radius.toFloat()
-            setColor(fill); if (strokeW > 0) setStroke(strokeW, stroke)
-        }
-
-    private fun Int.withAlpha(a: Int): Int = Color.argb(a, Color.red(this), Color.green(this), Color.blue(this))
-
-    private fun removeBubble() { bubbleView?.let { runCatching { wm.removeView(it) } }; bubbleView = null }
-    private fun removePanel() { panelView?.let { runCatching { wm.removeView(it) } }; panelView = null; panelVisible = false }
-
-    private fun buildNotification(): Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(CHANNEL_ID, "Astral Overlay", NotificationManager.IMPORTANCE_LOW)
-            getSystemService(NotificationManager::class.java)?.createNotificationChannel(ch)
-        }
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("✦ Astral Launcher")
-            .setContentText("Toque na bolha dourada no jogo")
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true).build()
+        createNotificationChannel()
+        startForeground(NOTIF_ID, buildNotification())
+        showBubble()
+        AppLogger.i(TAG, "OverlayService iniciado")
     }
 
     override fun onDestroy() {
-        super.onDestroy(); instance = null
-        bridge.destroy(); removeBubble(); removePanel()
+        scope.cancel()
+        removeBubble()
+        removePanel()
+        super.onDestroy()
     }
+
+    private fun createNotificationChannel() {
+        val ch = NotificationChannel(CHANNEL_ID, "Astral Overlay", NotificationManager.IMPORTANCE_LOW)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
+    }
+
+    private fun buildNotification(): Notification {
+        val stopIntent = PendingIntent.getBroadcast(
+            this, 0,
+            Intent("com.astrallauncher.STOP_OVERLAY"),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Astral Launcher")
+            .setContentText("Overlay ativo — toque para gerenciar mods")
+            .setSmallIcon(android.R.drawable.star_on)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(android.R.drawable.ic_delete, "Parar", stopIntent)
+            .build()
+    }
+
+    private fun overlayParams(w: Int, h: Int, x: Int, y: Int) = WindowManager.LayoutParams(
+        w, h,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        PixelFormat.TRANSLUCENT
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        this.x = x; this.y = y
+    }
+
+    private fun showBubble() {
+        val size = dp(60)
+        val params = overlayParams(size, size, 30, 200)
+
+        val bubble = createBubbleView(size)
+        bubbleView = bubble
+
+        setupBubbleDrag(bubble, params)
+        wm.addView(bubble, params)
+    }
+
+    private fun createBubbleView(size: Int): View {
+        val ctx = this
+        return object : View(ctx) {
+            private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#CC1A1A2E")
+                style = Paint.Style.FILL
+            }
+            private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#FFD700")
+                style = Paint.Style.STROKE
+                strokeWidth = dp(2).toFloat()
+            }
+            private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = dp(10).toFloat()
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#FFD700")
+                style = Paint.Style.FILL
+            }
+
+            override fun onDraw(c: Canvas) {
+                val cx = width / 2f; val cy = height / 2f; val r = width / 2f - dp(3)
+                c.drawCircle(cx, cy, r, bgPaint)
+                c.drawCircle(cx, cy, r, ringPaint)
+                c.drawText("⚡", cx, cy + dp(4), textPaint)
+                c.drawCircle(width - dp(6).toFloat(), dp(6).toFloat(), dp(4).toFloat(), dotPaint)
+            }
+        }.apply {
+            layoutParams = ViewGroup.LayoutParams(size, size)
+        }
+    }
+
+    private fun setupBubbleDrag(view: View, params: WindowManager.LayoutParams) {
+        var initX = 0; var initY = 0
+        var touchX = 0f; var touchY = 0f
+        var moved = false
+
+        view.setOnTouchListener { v, ev ->
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initX = params.x; initY = params.y
+                    touchX = ev.rawX; touchY = ev.rawY
+                    moved = false; true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (ev.rawX - touchX).toInt()
+                    val dy = (ev.rawY - touchY).toInt()
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true
+                    params.x = initX + dx; params.y = initY + dy
+                    wm.updateViewLayout(view, params); true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) togglePanel(params.x, params.y); true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun togglePanel(bubbleX: Int, bubbleY: Int) {
+        if (panelVisible) {
+            removePanel()
+        } else {
+            showPanel(bubbleX, bubbleY)
+        }
+        panelVisible = !panelVisible
+    }
+
+    private fun showPanel(bubbleX: Int, bubbleY: Int) {
+        val w = dp(320); val h = dp(480)
+        val screenH = wm.currentWindowMetrics.bounds.height()
+        val screenW = wm.currentWindowMetrics.bounds.width()
+
+        var px = bubbleX - w - dp(8)
+        if (px < 0) px = bubbleX + dp(68)
+        var py = bubbleY
+        if (py + h > screenH - dp(48)) py = screenH - h - dp(48)
+
+        val params = WindowManager.LayoutParams(
+            w, h,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = px; y = py
+        }
+
+        val panel = buildPanel()
+        panelView = panel
+        wm.addView(panel, params)
+
+        panel.alpha = 0f
+        panel.animate().alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+    }
+
+    private fun removePanel() {
+        panelView?.let {
+            try { wm.removeView(it) } catch (_: Exception) {}
+        }
+        panelView = null
+    }
+
+    private fun removeBubble() {
+        bubbleView?.let {
+            try { wm.removeView(it) } catch (_: Exception) {}
+        }
+        bubbleView = null
+    }
+
+    private fun buildPanel(): View {
+        val ctx = this
+
+        val root = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#F01A1A2E"))
+            val r = dp(16).toFloat()
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, v.width, v.height, r)
+                }
+            }
+            clipToOutline = true
+            elevation = dp(8).toFloat()
+        }
+
+        root.addView(buildPanelHeader(root))
+        root.addView(buildTabBar())
+        val content = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+            )
+        }
+        root.addView(content)
+
+        refreshTabContent(content, activeTab)
+        return root
+    }
+
+    private fun buildPanelHeader(root: LinearLayout): View {
+        val ctx = this
+        val header = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#22FFD700"))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+
+        val title = TextView(ctx).apply {
+            text = "⚡ Astral Mod Manager"
+            textSize = 14f
+            setTextColor(Color.parseColor("#FFD700"))
+            typeface = Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val closeBtn = TextView(ctx).apply {
+            text = "✕"
+            textSize = 16f
+            setTextColor(Color.parseColor("#FF6666"))
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(8), 0, 0, 0)
+            setOnClickListener { removePanel(); panelVisible = false }
+        }
+
+        setupHeaderDrag(header, root)
+        header.addView(title)
+        header.addView(closeBtn)
+        return header
+    }
+
+    private fun setupHeaderDrag(header: View, panel: View) {
+        var initX = 0; var initY = 0
+        var touchX = 0f; var touchY = 0f
+
+        header.setOnTouchListener { _, ev ->
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    val lp = panel.layoutParams as? WindowManager.LayoutParams
+                    initX = lp?.x ?: 0; initY = lp?.y ?: 0
+                    touchX = ev.rawX; touchY = ev.rawY; true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val lp = panel.layoutParams as? WindowManager.LayoutParams ?: return@setOnTouchListener true
+                    lp.x = initX + (ev.rawX - touchX).toInt()
+                    lp.y = initY + (ev.rawY - touchY).toInt()
+                    try { wm.updateViewLayout(panel, lp) } catch (_: Exception) {}; true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private val tabLabels = listOf("Mods", "Ativos", "Info")
+
+    private fun buildTabBar(): View {
+        val ctx = this
+        val bar = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#11FFFFFF"))
+        }
+
+        tabLabels.forEachIndexed { i, label ->
+            val tab = TextView(ctx).apply {
+                text = label
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setPadding(0, dp(10), 0, dp(10))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                setTextColor(if (i == activeTab) Color.parseColor("#FFD700") else Color.parseColor("#88FFFFFF"))
+                typeface = if (i == activeTab) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                setOnClickListener {
+                    activeTab = i
+                    val parent = (parent as? LinearLayout)?.parent as? LinearLayout ?: return@setOnClickListener
+                    val content = parent.getChildAt(2) as? FrameLayout ?: return@setOnClickListener
+                    refreshTabBar(parent.getChildAt(1) as LinearLayout)
+                    refreshTabContent(content, i)
+                }
+            }
+            bar.addView(tab)
+
+            if (i < tabLabels.size - 1) {
+                bar.addView(View(ctx).apply {
+                    setBackgroundColor(Color.parseColor("#22FFFFFF"))
+                    layoutParams = LinearLayout.LayoutParams(1, LinearLayout.LayoutParams.MATCH_PARENT)
+                })
+            }
+        }
+        return bar
+    }
+
+    private fun refreshTabBar(bar: LinearLayout) {
+        for (i in 0 until bar.childCount) {
+            val child = bar.getChildAt(i)
+            if (child is TextView) {
+                val idx = tabLabels.indexOf(child.text.toString())
+                if (idx >= 0) {
+                    child.setTextColor(if (idx == activeTab) Color.parseColor("#FFD700") else Color.parseColor("#88FFFFFF"))
+                    child.typeface = if (idx == activeTab) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                }
+            }
+        }
+    }
+
+    private fun refreshTabContent(container: FrameLayout, tab: Int) {
+        container.removeAllViews()
+        val view = when (tab) {
+            0 -> buildModsTab()
+            1 -> buildActiveModsTab()
+            else -> buildInfoTab()
+        }
+        container.addView(view)
+    }
+
+    private fun buildModsTab(): View {
+        val ctx = this
+        val scroll = ScrollView(ctx)
+        val list = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }
+
+        val modsDir = File(filesDir, Constants.MODS_DIR)
+        val dllFiles = modsDir.listFiles { f -> f.extension == "dll" } ?: emptyArray()
+
+        if (dllFiles.isEmpty()) {
+            list.addView(buildEmptyState("Nenhum mod instalado.\nBaixe mods pela tela Explorar."))
+        } else {
+            dllFiles.forEach { dll ->
+                list.addView(buildModRow(dll))
+            }
+        }
+
+        scroll.addView(list)
+        return scroll
+    }
+
+    private fun buildModRow(dll: File): View {
+        val ctx = this
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#1AFFFFFF"))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.bottomMargin = dp(6)
+            layoutParams = lp
+            val r = dp(8).toFloat()
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, v.width, v.height, r)
+                }
+            }
+            clipToOutline = true
+        }
+
+        val info = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        info.addView(TextView(ctx).apply {
+            text = dll.nameWithoutExtension
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        info.addView(TextView(ctx).apply {
+            text = "${dll.length() / 1024} KB"
+            textSize = 10f
+            setTextColor(Color.parseColor("#88FFFFFF"))
+        })
+
+        val toggle = Switch(ctx).apply {
+            isChecked = true
+            thumbTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFD700"))
+            trackTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#33FFD700"))
+            setOnCheckedChangeListener { _, checked ->
+                AppLogger.i(TAG, "${dll.name}: ${if (checked) "habilitado" else "desabilitado"}")
+            }
+        }
+
+        val deleteBtn = TextView(ctx).apply {
+            text = "🗑"
+            textSize = 16f
+            setPadding(dp(8), 0, 0, 0)
+            setOnClickListener {
+                dll.delete()
+                AppLogger.i(TAG, "Mod deletado: ${dll.name}")
+                val parent = parent as? LinearLayout ?: return@setOnClickListener
+                val grandParent = parent.parent as? LinearLayout ?: return@setOnClickListener
+                grandParent.removeView(parent)
+            }
+        }
+
+        row.addView(info)
+        row.addView(toggle)
+        row.addView(deleteBtn)
+        return row
+    }
+
+    private fun buildActiveModsTab(): View {
+        val ctx = this
+        val scroll = ScrollView(ctx)
+        val list = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }
+
+        val modsDir = File(filesDir, Constants.MODS_DIR)
+        val enabled = modsDir.listFiles { f -> f.extension == "dll" }?.toList() ?: emptyList()
+
+        if (enabled.isEmpty()) {
+            list.addView(buildEmptyState("Nenhum mod ativo.\nHabilite mods na aba Mods."))
+        } else {
+            list.addView(buildSectionLabel("${enabled.size} mods ativos para próximo patch"))
+            enabled.forEach { dll ->
+                list.addView(buildActiveModChip(dll))
+            }
+        }
+
+        scroll.addView(list)
+        return scroll
+    }
+
+    private fun buildActiveModChip(dll: File): View {
+        val ctx = this
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#1A00FF88"))
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.bottomMargin = dp(4)
+            layoutParams = lp
+            val r = dp(8).toFloat()
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, v.width, v.height, r)
+                }
+            }
+            clipToOutline = true
+
+            addView(TextView(ctx).apply {
+                text = "● "
+                setTextColor(Color.parseColor("#00FF88"))
+                textSize = 12f
+            })
+            addView(TextView(ctx).apply {
+                text = dll.nameWithoutExtension
+                setTextColor(Color.WHITE)
+                textSize = 12f
+            })
+        }
+    }
+
+    private fun buildInfoTab(): View {
+        val ctx = this
+        val scroll = ScrollView(ctx)
+        val list = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
+
+        val auVersion = try {
+            packageManager.getPackageInfo(Constants.AU_PACKAGE, 0).versionName ?: "?"
+        } catch (_: Exception) { "Não instalado" }
+
+        val modsDir = File(filesDir, Constants.MODS_DIR)
+        val modCount = modsDir.listFiles { f -> f.extension == "dll" }?.size ?: 0
+
+        list.addView(buildInfoRow("Launcher", "Astral v1.0.0"))
+        list.addView(buildInfoRow("Among Us", auVersion))
+        list.addView(buildInfoRow("Mods instalados", "$modCount DLLs"))
+        list.addView(buildInfoRow("Package", Constants.AU_PACKAGE))
+        list.addView(buildInfoRow("Overlay", "Ativo ✓"))
+
+        list.addView(View(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
+            setBackgroundColor(Color.parseColor("#22FFFFFF"))
+            (layoutParams as LinearLayout.LayoutParams).setMargins(0, dp(12), 0, dp(12))
+        })
+
+        val stopBtn = TextView(ctx).apply {
+            text = "Parar Overlay"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#FF6666"))
+            setBackgroundColor(Color.parseColor("#22FF0000"))
+            setPadding(0, dp(12), 0, dp(12))
+            val r = dp(8).toFloat()
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(v: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, v.width, v.height, r)
+                }
+            }
+            clipToOutline = true
+            setOnClickListener { stopSelf() }
+        }
+        list.addView(stopBtn)
+
+        scroll.addView(list)
+        return scroll
+    }
+
+    private fun buildInfoRow(label: String, value: String): View {
+        val ctx = this
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(6), 0, dp(6))
+        }
+        row.addView(TextView(ctx).apply {
+            text = label
+            textSize = 11f
+            setTextColor(Color.parseColor("#88FFFFFF"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        row.addView(TextView(ctx).apply {
+            text = value
+            textSize = 11f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        return row
+    }
+
+    private fun buildSectionLabel(text: String): View {
+        val ctx = this
+        return TextView(ctx).apply {
+            this.text = text
+            textSize = 11f
+            setTextColor(Color.parseColor("#88FFFFFF"))
+            setPadding(0, 0, 0, dp(8))
+        }
+    }
+
+    private fun buildEmptyState(text: String): View {
+        val ctx = this
+        return TextView(ctx).apply {
+            this.text = text
+            textSize = 12f
+            setTextColor(Color.parseColor("#66FFFFFF"))
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(32), dp(16), dp(32))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
