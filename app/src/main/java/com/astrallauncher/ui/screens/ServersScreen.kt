@@ -29,37 +29,47 @@ fun ServersScreen(vm: MainViewModel) {
     LazyColumn(Modifier.fillMaxSize().background(AL.Bg), contentPadding = PaddingValues(bottom = 100.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Servers", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, modifier = Modifier.weight(1f))
-                GoldButton("+ Add", onClick = { showAdd = true })
+                Text("Servidores", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, modifier = Modifier.weight(1f))
+                GoldButton("+ Adicionar", onClick = { showAdd = true })
             }
         }
         item { AstralCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Info, null, tint = AL.Info, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp))
-                Text("Custom servers are injected into Among Us via the patched APK. Requires mod support.", color = AL.Muted, fontSize = 12.sp, lineHeight = 18.sp)
+                Text("Servidores customizados são injetados via APK patcheado. Requer suporte a mods.", color = AL.Muted, fontSize = 12.sp, lineHeight = 18.sp)
             }
         } }
-        if (servers.isEmpty()) item { EmptyState(Icons.Outlined.Dns, "No custom servers", "Add a private or modded Among Us server", action = { GoldButton("Add Server", { showAdd = true }, icon = Icons.Outlined.Add) }) }
+        if (servers.isEmpty()) item { EmptyState(Icons.Outlined.Dns, "Nenhum servidor customizado", "Adicione um servidor privado ou modded", action = { GoldButton("Adicionar", { showAdd = true }, icon = Icons.Outlined.Add) }) }
         else {
-            item { SectionHeader("Custom Servers", action = "${servers.size}") }
+            item { SectionHeader("Servidores Customizados", action = "${servers.size}") }
             items(servers) { ServerCard(it) { vm.deleteServer(it.id) } }
         }
-        item { SectionHeader("Default Servers") }
-        item { listOf("North America" to "na.among.us", "Europe" to "eu.among.us", "Asia" to "as.among.us").forEach { (n, ip) ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp)).background(AL.BgCard).border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(AL.Surface), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Language, null, tint = AL.Info, modifier = Modifier.size(20.dp)) }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Text(n, color = AL.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Text("$ip:22023", color = AL.Muted, fontSize = 12.sp) }
-                StatusChip("Official", AL.Success)
+        item { SectionHeader("Servidores Oficiais") }
+        item {
+            listOf("América do Norte" to "na.among.us", "Europa" to "eu.among.us", "Ásia" to "as.among.us").forEach { (n, ip) ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp))
+                    .background(AL.BgCard).border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(AL.Surface), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Language, null, tint = AL.Info, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) { Text(n, color = AL.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Text("$ip:22023", color = AL.Muted, fontSize = 12.sp) }
+                    StatusChip("Oficial", AL.Success)
+                }
             }
-        } }
+        }
     }
 }
 
 @Composable fun ServerCard(s: CustomServer, onDelete: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp)).background(AL.BgCard).border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Dns, null, tint = AL.Gold, modifier = Modifier.size(22.dp)) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp))
+        .background(AL.BgCard).border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Dns, null, tint = AL.Gold, modifier = Modifier.size(22.dp))
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(s.name, color = AL.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -67,12 +77,14 @@ fun ServersScreen(vm: MainViewModel) {
             if (s.description.isNotEmpty()) Text(s.description, color = AL.Muted, fontSize = 11.sp, maxLines = 1)
         }
         StatusChip(s.region, AL.Gold); Spacer(Modifier.width(6.dp))
-        IconButton(onClick = { confirm = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.DeleteOutline, null, tint = AL.Error.copy(0.7f), modifier = Modifier.size(18.dp)) }
+        IconButton(onClick = { confirm = true }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Outlined.DeleteOutline, null, tint = AL.Error.copy(0.7f), modifier = Modifier.size(18.dp))
+        }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, containerColor = AL.Surface,
-        title = { Text("Remove?", color = AL.White) }, text = { Text("Delete '${s.name}'?", color = AL.Muted) },
-        confirmButton = { TextButton(onClick = { onDelete(); confirm = false }) { Text("Remove", color = AL.Error) } },
-        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel", color = AL.Muted) } })
+        title = { Text("Remover?", color = AL.White) }, text = { Text("Deletar '${s.name}'?", color = AL.Muted) },
+        confirmButton = { TextButton(onClick = { onDelete(); confirm = false }) { Text("Remover", color = AL.Error) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar", color = AL.Muted) } })
 }
 
 @Composable
@@ -94,21 +106,22 @@ private fun Field(label: String, value: String, onChange: (String) -> Unit, kb: 
     Column(Modifier.fillMaxSize().background(AL.Bg).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, null, tint = AL.White) }
-            Spacer(Modifier.width(8.dp)); Text("Add Server", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            Spacer(Modifier.width(8.dp)); Text("Adicionar Servidor", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         }
         Spacer(Modifier.height(20.dp))
-        Field("Server Name *", name, { name = it }, hint = "My Modded Server")
+        Field("Nome *", name, { name = it }, hint = "Meu Servidor Modded")
         Field("IP / Hostname *", ip, { ip = it }, hint = "192.168.0.1")
-        Field("Port", port, { port = it }, KeyboardType.Number, hint = "22023")
-        Field("Region Label", region, { region = it }, hint = "Custom")
-        Field("Description", desc, { desc = it }, hint = "Optional")
+        Field("Porta", port, { port = it }, KeyboardType.Number, hint = "22023")
+        Field("Região", region, { region = it }, hint = "Custom")
+        Field("Descrição", desc, { desc = it }, hint = "Opcional")
         err?.let { Text(it, color = AL.Error, fontSize = 13.sp); Spacer(Modifier.height(8.dp)) }
         Spacer(Modifier.weight(1f))
-        GoldButton("Add Server", onClick = {
-            when { name.isBlank() -> err = "Name required"; ip.isBlank() -> err = "IP required"
-                port.toIntOrNull() == null -> err = "Invalid port"
-                else -> onAdd(CustomServer(UUID.randomUUID().toString(), name.trim(), ip.trim(), port.toInt(), region.trim(), desc.trim())) }
+        GoldButton("Adicionar", onClick = {
+            when { name.isBlank() -> err = "Nome obrigatório"; ip.isBlank() -> err = "IP obrigatório"
+                port.toIntOrNull() == null -> err = "Porta inválida"
+                else -> onAdd(CustomServer(UUID.randomUUID().toString(), name.trim(), ip.trim(), port.toInt(), region.trim(), desc.trim()))
+            }
         }, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Add)
-        Spacer(Modifier.height(8.dp)); GhostButton("Cancel", onDismiss, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(8.dp)); GhostButton("Cancelar", onDismiss, Modifier.fillMaxWidth())
     }
 }
