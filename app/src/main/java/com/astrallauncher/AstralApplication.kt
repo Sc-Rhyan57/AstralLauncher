@@ -7,6 +7,6 @@ class AstralApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AppLogger.init(this)
-        AppLogger.i("App", "AstralLauncher started — version 1.0.0")
+        AppLogger.i("App", "AstralLauncher v1.0.0 started")
     }
 }
