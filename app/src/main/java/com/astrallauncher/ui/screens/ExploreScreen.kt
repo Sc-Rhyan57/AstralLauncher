@@ -1,159 +1,133 @@
 package com.astrallauncher.ui.screens
 
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.*
-import coil.compose.AsyncImage
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.astrallauncher.MainViewModel
-import com.astrallauncher.model.ModEntry
-import com.astrallauncher.ui.AL
-import com.astrallauncher.ui.components.*
+import com.astrallauncher.model.Mod
+import com.astrallauncher.ui.CardBg
+import com.astrallauncher.ui.Gold
+import com.astrallauncher.ui.TextSecondary
 
 @Composable
 fun ExploreScreen(vm: MainViewModel) {
-    val mods by vm.mods.collectAsState()
-    val loading by vm.modsLoading.collectAsState()
-    val error by vm.modsError.collectAsState()
-    val installed by vm.installedMods.collectAsState()
-    val progress by vm.downloadProgress.collectAsState()
+    val remoteMods by vm.remoteMods.collectAsState()
+    val installed  by vm.installedMods.collectAsState()
     var query by remember { mutableStateOf("") }
-    var detail by remember { mutableStateOf<ModEntry?>(null) }
 
-    val filtered = mods.filter { query.isBlank() || it.name.contains(query, true) || it.author.contains(query, true) || it.tags.any { t -> t.contains(query, true) } }
-    val trending = mods.sortedByDescending { it.downloads }.take(5)
+    LaunchedEffect(Unit) { vm.fetchRemoteMods() }
 
-    if (detail != null) {
-        ModDetail(mod = detail!!, isInstalled = installed.any { it.id == detail!!.id }, progress = progress[detail!!.id],
-            onInstall = { vm.downloadAndInstall(detail!!) }, onBack = { detail = null })
-        return
+    val filtered = remoteMods.filter {
+        query.isEmpty() || it.name.contains(query, true) || it.tags.any { t -> t.contains(query, true) }
     }
+    val installedIds = installed.map { it.id }.toSet()
 
-    LazyColumn(modifier = Modifier.fillMaxSize().background(AL.Bg), contentPadding = PaddingValues(bottom = 100.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Explore", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = { vm.fetchMods() }) { Icon(Icons.Outlined.Refresh, null, tint = AL.Muted) }
-            }
-        }
-        item {
-            OutlinedTextField(value = query, onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Buscar mods...", color = AL.Muted) },
-                leadingIcon = { Icon(Icons.Outlined.Search, null, tint = AL.Muted) },
-                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, null, tint = AL.Muted) } },
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AL.Gold, unfocusedBorderColor = AL.Border, focusedTextColor = AL.White, unfocusedTextColor = AL.White, cursorColor = AL.Gold),
-                shape = RoundedCornerShape(14.dp), singleLine = true)
-        }
-        if (loading) item { Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AL.Gold) } }
-        else if (error != null) item { EmptyState(Icons.Outlined.WifiOff, "Não foi possível carregar", error ?: "Verifique a conexão", action = { GoldButton("Tentar novamente", { vm.fetchMods() }) }) }
-        else {
-            if (query.isEmpty() && trending.isNotEmpty()) {
-                item { SectionHeader("Em alta") }
-                item { LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
-                    items(trending) { TrendCard(it) { detail = it } }
-                } }
-                item { Spacer(Modifier.height(8.dp)); SectionHeader("Todos os Mods") }
-            }
-            if (filtered.isEmpty()) item { EmptyState(Icons.Outlined.SearchOff, "Sem resultados", "Tente outra busca") }
-            else items(filtered) { mod -> ModRow2(mod, installed.any { it.id == mod.id }, progress[mod.id], { vm.downloadAndInstall(mod) }) { detail = mod } }
-        }
-    }
-}
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Explorar Mods", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Gold)
 
-@Composable fun TrendCard(mod: ModEntry, onClick: () -> Unit) {
-    Box(Modifier.width(155.dp).height(95.dp).clip(RoundedCornerShape(14.dp)).background(AL.Surface)
-        .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(14.dp)).clickable { onClick() }) {
-        if (mod.banner.isNotEmpty()) { AsyncImage(mod.banner, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(AL.Bg.copy(0f), AL.Bg.copy(0.9f))))) }
-        Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
-            Text(mod.name, color = AL.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${mod.downloads} dl", color = AL.Muted, fontSize = 10.sp)
-        }
-    }
-}
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text("Buscar mods...", color = TextSecondary, fontSize = 13.sp) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Gold,
+                unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = Gold
+            ),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = {})
+        )
 
-@Composable fun ModRow2(mod: ModEntry, installed: Boolean, progress: Int?, onInstall: () -> Unit, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp))
-        .background(AL.BgCard).border(BorderStroke(0.5.dp, if (installed) AL.GoldDark.copy(0.5f) else AL.Border), RoundedCornerShape(14.dp))
-        .clickable { onClick() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(50.dp).clip(RoundedCornerShape(12.dp)).background(AL.Surface)) {
-            if (mod.icon.isNotEmpty()) AsyncImage(mod.icon, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            else Box(Modifier.fillMaxSize().background(AL.GoldBg), contentAlignment = Alignment.Center) { Text(mod.name.firstOrNull()?.toString() ?: "?", color = AL.Gold, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp) }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(mod.name, color = AL.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(mod.author, color = AL.Gold, fontSize = 11.sp)
-            Text(mod.shortDescription.ifEmpty { mod.description }, color = AL.Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Row(Modifier.padding(top = 3.dp)) {
-                Icon(Icons.Outlined.Download, null, tint = AL.Muted, modifier = Modifier.size(12.dp))
-                Text(" ${mod.downloads}", color = AL.Muted, fontSize = 11.sp)
-                Spacer(Modifier.width(6.dp))
-                mod.tags.take(2).forEach { StatusChip(it, AL.Purple); Spacer(Modifier.width(4.dp)) }
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        if (progress != null) CircularProgressIndicator(progress = { progress / 100f }, modifier = Modifier.size(32.dp), color = AL.Gold, strokeWidth = 3.dp)
-        else if (installed) StatusChip("✓", AL.Success)
-        else IconButton(onClick = onInstall, modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(AL.GoldBg)) {
-            Icon(Icons.Outlined.Download, null, tint = AL.Gold, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable fun ModDetail(mod: ModEntry, isInstalled: Boolean, progress: Int?, onInstall: () -> Unit, onBack: () -> Unit) {
-    LazyColumn(Modifier.fillMaxSize().background(AL.Bg), contentPadding = PaddingValues(bottom = 100.dp)) {
-        item {
-            Box(Modifier.fillMaxWidth().height(190.dp).background(AL.GoldBg)) {
-                if (mod.banner.isNotEmpty()) { AsyncImage(mod.banner, null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(AL.Bg.copy(0f), AL.Bg)))) }
-                else Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(AL.GoldBg, AL.Bg))), contentAlignment = Alignment.Center) { Text("✦", color = AL.Gold.copy(0.2f), fontSize = 80.sp) }
-                IconButton(onClick = onBack, modifier = Modifier.padding(12.dp)) { Icon(Icons.Outlined.ArrowBack, null, tint = AL.White) }
-            }
-        }
-        item {
-            Column(Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (mod.icon.isNotEmpty()) { AsyncImage(mod.icon, null, modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop); Spacer(Modifier.width(12.dp)) }
-                    Column(Modifier.weight(1f)) {
-                        Text(mod.name, color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-                        Text(mod.author, color = AL.Gold, fontSize = 13.sp)
-                        Text("v${mod.version} • AU ${mod.gameVersion}", color = AL.Muted, fontSize = 11.sp)
-                    }
+        if (remoteMods.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(color = Gold)
+                    Text("Carregando repositório...", color = TextSecondary, fontSize = 13.sp)
                 }
-                Spacer(Modifier.height(14.dp))
+            }
+        } else if (filtered.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Nenhum mod encontrado para \"$query\"", color = TextSecondary, fontSize = 13.sp)
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(filtered, key = { it.id }) { mod ->
+                    ModCard(mod, installed = mod.id in installedIds, onInstall = { vm.downloadMod(mod) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModCard(mod: Mod, installed: Boolean, onInstall: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(mod.name, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                    Text("por ${mod.author} · v${mod.version}", color = TextSecondary, fontSize = 11.sp)
+                }
+                if (installed) {
+                    Text(
+                        "✓ Instalado",
+                        color = Color(0xFF00FF88),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Text(mod.description, color = TextSecondary, fontSize = 12.sp, lineHeight = 17.sp)
+
+            if (mod.tags.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    mod.tags.forEach { StatusChip(it, AL.Purple) }
-                    if (mod.starlightCompatible) StatusChip("Starlight ✓", AL.Gold)
-                    if (mod.supportsLua) StatusChip("Lua", AL.Info)
-                }
-                Spacer(Modifier.height(18.dp))
-                Text(mod.description, color = AL.MutedL, fontSize = 14.sp, lineHeight = 22.sp)
-                Spacer(Modifier.height(22.dp))
-                when {
-                    progress != null -> { LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = AL.Gold); Spacer(Modifier.height(8.dp)); Text("Baixando $progress%", color = AL.Muted, fontSize = 13.sp) }
-                    isInstalled -> StatusChip("✓ Instalado", AL.Success)
-                    else -> GoldButton("Instalar", onClick = onInstall, modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Download)
-                }
-                if (mod.changelog.isNotEmpty()) {
-                    Spacer(Modifier.height(20.dp)); GoldDivider(); Spacer(Modifier.height(14.dp))
-                    Text("Changelog", color = AL.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    mod.changelog.forEach { e ->
-                        Spacer(Modifier.height(8.dp)); Text("v${e.version} — ${e.date}", color = AL.Gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        e.changes.forEach { Text("• $it", color = AL.Muted, fontSize = 13.sp) }
+                    mod.tags.take(4).forEach { tag ->
+                        Text(
+                            tag,
+                            modifier = Modifier
+                                .background(Gold.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                                .border(0.5.dp, Gold.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                            color = Gold,
+                            fontSize = 10.sp
+                        )
                     }
+                }
+            }
+
+            if (!installed) {
+                Button(
+                    onClick = onInstall,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Text("⬇ Instalar", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
