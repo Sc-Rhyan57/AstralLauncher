@@ -41,6 +41,7 @@ val tabs = listOf(
     NavTab("🏠", "Início"),
     NavTab("🔍", "Explorar"),
     NavTab("📦", "Mods"),
+    NavTab("🖥", "Servers"),
     NavTab("⚙", "Config")
 )
 
@@ -56,7 +57,8 @@ fun AstralApp(vm: MainViewModel) {
                 0 -> HomeScreen(vm)
                 1 -> ExploreScreen(vm)
                 2 -> ModsScreen(vm)
-                3 -> SettingsScreen(vm)
+                3 -> ServersScreen(vm)
+                4 -> SettingsScreen(vm)
             }
         }
 
@@ -75,17 +77,17 @@ fun AstralApp(vm: MainViewModel) {
                         .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(tab.icon, fontSize = 20.sp)
+                    Text(tab.icon, fontSize = 18.sp)
                     Text(
                         tab.label,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         color = if (selected) Gold else TextSecondary,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                     )
                     if (selected) {
                         Box(
                             Modifier
-                                .width(24.dp)
+                                .width(20.dp)
                                 .height(2.dp)
                                 .background(Gold)
                         )
