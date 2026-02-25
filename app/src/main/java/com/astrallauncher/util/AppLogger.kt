@@ -22,7 +22,6 @@ object AppLogger {
         logFile = File(ctx.filesDir, "astral_log.txt")
         if ((logFile?.length() ?: 0) > 2 * 1024 * 1024) logFile?.delete()
         logFile?.parentFile?.mkdirs()
-        i("AppLogger", "Logger initialized")
     }
 
     private fun append(level: Level, tag: String, msg: String) {
@@ -36,5 +35,5 @@ object AppLogger {
     fun w(tag: String, msg: String) = append(Level.WARN, tag, msg)
     fun e(tag: String, msg: String) = append(Level.ERROR, tag, msg)
     fun clearLogs() { _logs.value = emptyList() }
-    fun exportLogs(): String = _logs.value.joinToString("\n") { "[${it.time}] [${it.level.name}] [${it.tag}] ${it.msg}" }
+    fun exportLogs() = _logs.value.joinToString("\n") { "[${it.time}] [${it.level.name}] [${it.tag}] ${it.msg}" }
 }
