@@ -14,7 +14,7 @@ private const val TAG = "ModRepo"
 
 object ModRepositoryApi {
     private val client = OkHttpClient()
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json   = Json { ignoreUnknownKeys = true }
 
     suspend fun fetchMods(repoUrl: String): List<Mod> = withContext(Dispatchers.IO) {
         try {
@@ -33,10 +33,10 @@ object ModRepositoryApi {
         onProgress: (Float) -> Unit
     ): File? = withContext(Dispatchers.IO) {
         try {
-            val resp = client.newCall(Request.Builder().url(mod.downloadUrl).build()).execute()
-            val body = resp.body ?: return@withContext null
+            val resp  = client.newCall(Request.Builder().url(mod.downloadUrl).build()).execute()
+            val body  = resp.body ?: return@withContext null
             val total = body.contentLength().toFloat()
-            val dest = File(destDir, "${mod.id}.dll")
+            val dest  = File(destDir, "${mod.id}.dll")
             var downloaded = 0L
             FileOutputStream(dest).use { out ->
                 body.byteStream().use { inp ->
