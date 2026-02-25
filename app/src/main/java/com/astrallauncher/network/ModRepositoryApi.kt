@@ -1,40 +1,59 @@
 package com.astrallauncher.network
 
-import com.astrallauncher.model.ModRepository
+import com.astrallauncher.model.Mod
+import com.astrallauncher.util.AppLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.util.concurrent.TimeUnit
+import java.io.File
+import java.io.FileOutputStream
+
+private const val TAG = "ModRepo"
 
 object ModRepositoryApi {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-    const val REPO_URL = "https://raw.githubusercontent.com/Sc-Rhyan57/AstralData/main/AstralLauncher/mods.json"
+    private val client = OkHttpClient()
+    private val json = Json { ignoreUnknownKeys = true }
 
-    fun fetchMods(url: String = REPO_URL): Result<ModRepository> = runCatching {
-        val body = client.newCall(Request.Builder().url(url).build()).execute().body?.string()
-            ?: error("Resposta vazia")
-        json.decodeFromString(body)
+    suspend fun fetchMods(repoUrl: String): List<Mod> = withContext(Dispatchers.IO) {
+        try {
+            val resp = client.newCall(Request.Builder().url(repoUrl).build()).execute()
+            val body = resp.body?.string() ?: return@withContext emptyList()
+            json.decodeFromString<List<Mod>>(body)
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "fetchMods falhou: ${e.message}")
+            emptyList()
+        }
     }
 
-    fun downloadFile(url: String, dest: String, onProgress: (Int) -> Unit): Result<Unit> = runCatching {
-        val resp = client.newCall(Request.Builder().url(url).build()).execute()
-        val body = resp.body ?: error("Body vazio")
-        val total = body.contentLength()
-        var dl = 0L
-        val file = java.io.File(dest)
-        file.parentFile?.mkdirs()
-        body.byteStream().use { inp ->
-            file.outputStream().use { out ->
-                val buf = ByteArray(8192); var n: Int
-                while (inp.read(buf).also { n = it } != -1) {
-                    out.write(buf, 0, n); dl += n
-                    if (total > 0) onProgress(((dl * 100) / total).toInt())
+    suspend fun downloadMod(
+        mod: Mod,
+        destDir: File,
+        onProgress: (Float) -> Unit
+    ): File? = withContext(Dispatchers.IO) {
+        try {
+            val resp = client.newCall(Request.Builder().url(mod.downloadUrl).build()).execute()
+            val body = resp.body ?: return@withContext null
+            val total = body.contentLength().toFloat()
+            val dest = File(destDir, "${mod.id}.dll")
+            var downloaded = 0L
+            FileOutputStream(dest).use { out ->
+                body.byteStream().use { inp ->
+                    val buf = ByteArray(8192)
+                    var n: Int
+                    while (inp.read(buf).also { n = it } != -1) {
+                        out.write(buf, 0, n)
+                        downloaded += n
+                        if (total > 0) onProgress(downloaded / total)
+                    }
                 }
             }
+            AppLogger.i(TAG, "Baixado: ${dest.name}")
+            dest
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "download falhou: ${e.message}")
+            null
         }
     }
 }
