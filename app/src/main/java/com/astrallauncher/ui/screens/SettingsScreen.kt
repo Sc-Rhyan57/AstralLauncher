@@ -25,10 +25,10 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val logs by AppLogger.logs.collectAsState()
-    var repoUrl by remember { mutableStateOf("") }
+    val ctx       = LocalContext.current
+    val scope     = rememberCoroutineScope()
+    val logs      by AppLogger.logs.collectAsState()
+    var repoUrl   by remember { mutableStateOf("") }
     var logFilter by remember { mutableStateOf(LogLevel.INFO) }
 
     LaunchedEffect(Unit) {
@@ -60,7 +60,7 @@ fun SettingsScreen(vm: MainViewModel) {
                             )
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Gold),
-                        shape = RoundedCornerShape(8.dp)
+                        shape  = RoundedCornerShape(8.dp)
                     ) {
                         Text("Conceder", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
@@ -72,24 +72,24 @@ fun SettingsScreen(vm: MainViewModel) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Repositório de Mods", fontWeight = FontWeight.Bold, color = Gold, fontSize = 14.sp)
                 OutlinedTextField(
-                    value = repoUrl,
+                    value         = repoUrl,
                     onValueChange = { repoUrl = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("URL do repositório", color = TextSecondary) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Gold,
+                    modifier      = Modifier.fillMaxWidth(),
+                    label         = { Text("URL do repositório", color = TextSecondary) },
+                    singleLine    = true,
+                    shape         = RoundedCornerShape(8.dp),
+                    colors        = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor   = Gold,
                         unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Gold
+                        focusedTextColor     = Color.White,
+                        unfocusedTextColor   = Color.White,
+                        cursorColor          = Gold
                     )
                 )
                 Button(
                     onClick = { scope.launch { Prefs.setRepoUrl(ctx, repoUrl) } },
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold),
-                    shape = RoundedCornerShape(8.dp)
+                    colors  = ButtonDefaults.buttonColors(containerColor = Gold),
+                    shape   = RoundedCornerShape(8.dp)
                 ) {
                     Text("Salvar", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
@@ -108,12 +108,12 @@ fun SettingsScreen(vm: MainViewModel) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     LogLevel.values().forEach { level ->
                         FilterChip(
-                            selected = logFilter == level,
-                            onClick = { logFilter = level },
-                            label = { Text(level.name, fontSize = 10.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
+                            selected  = logFilter == level,
+                            onClick   = { logFilter = level },
+                            label     = { Text(level.name, fontSize = 10.sp) },
+                            colors    = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Gold,
-                                selectedLabelColor = Color.Black
+                                selectedLabelColor     = Color.Black
                             ),
                             shape = RoundedCornerShape(6.dp)
                         )
@@ -123,8 +123,8 @@ fun SettingsScreen(vm: MainViewModel) {
                 val filtered = logs.filter { it.level.ordinal >= logFilter.ordinal }.takeLast(80)
                 Surface(
                     modifier = Modifier.fillMaxWidth().height(220.dp),
-                    color = Color.Black.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(8.dp)
+                    color    = Color.Black.copy(alpha = 0.4f),
+                    shape    = RoundedCornerShape(8.dp)
                 ) {
                     val scroll = rememberScrollState(Int.MAX_VALUE)
                     Column(
@@ -140,8 +140,8 @@ fun SettingsScreen(vm: MainViewModel) {
                             }
                             Text(
                                 "[${log.time}] [${log.level}] [${log.tag}] ${log.msg}",
-                                color = color,
-                                fontSize = 9.sp,
+                                color      = color,
+                                fontSize   = 9.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                             )
                         }
