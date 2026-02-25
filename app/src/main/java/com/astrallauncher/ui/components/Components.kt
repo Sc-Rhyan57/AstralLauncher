@@ -38,7 +38,7 @@ fun AstralTopBar(title: String, actions: @Composable RowScope.() -> Unit = {}) {
                 Text("✦", color = AL.Gold.copy(a), fontSize = 16.sp)
             }
             Spacer(Modifier.width(10.dp))
-            Text(title, color = AL.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, letterSpacing = 0.5.sp)
+            Text(title, color = AL.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(Modifier.weight(1f))
             actions()
         }
@@ -79,7 +79,8 @@ fun GoldButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
 @Composable
 fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = AL.Muted) {
     OutlinedButton(onClick = onClick, modifier = modifier.height(48.dp), shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = color), border = BorderStroke(1.dp, color.copy(0.4f))) {
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = color),
+        border = BorderStroke(1.dp, color.copy(0.4f))) {
         Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
@@ -106,8 +107,10 @@ fun SectionHeader(title: String, action: String? = null, onAction: (() -> Unit)?
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, color = AL.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.weight(1f))
-        action?.let { a -> onAction?.let { TextButton(onClick = it) { Text("$a →", color = AL.Gold, fontSize = 13.sp) } }
-            ?: Text(a, color = AL.Muted, fontSize = 13.sp) }
+        action?.let { a ->
+            onAction?.let { TextButton(onClick = it) { Text("$a →", color = AL.Gold, fontSize = 13.sp) } }
+                ?: Text(a, color = AL.Muted, fontSize = 13.sp)
+        }
     }
 }
 
