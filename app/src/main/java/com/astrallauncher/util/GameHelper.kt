@@ -11,7 +11,7 @@ private const val TAG = "GameHelper"
 object GameHelper {
 
     fun launchGame(ctx: Context) {
-        val pkg = Constants.AU_PACKAGE
+        val pkg    = Constants.AU_PACKAGE
         val intent = ctx.packageManager.getLaunchIntentForPackage(pkg)
         if (intent != null) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -24,7 +24,7 @@ object GameHelper {
 
     fun installApk(ctx: Context, apkFile: File) {
         AppLogger.i(TAG, "Installing APK: ${apkFile.name} (${apkFile.length() / 1024}KB)")
-        val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.provider", apkFile)
+        val uri    = FileProvider.getUriForFile(ctx, "${ctx.packageName}.provider", apkFile)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
