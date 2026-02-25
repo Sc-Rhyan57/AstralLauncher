@@ -1,13 +1,13 @@
 package com.astrallauncher
 
 import android.app.Application
-import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.astrallauncher.bridge.AstralBridgeClient
+import com.astrallauncher.model.CustomServer
 import com.astrallauncher.model.InstalledMod
 import com.astrallauncher.model.Mod
-import com.astrallauncher.model.PatchStep
 import com.astrallauncher.network.ModRepositoryApi
 import com.astrallauncher.util.*
 import kotlinx.coroutines.flow.*
@@ -20,6 +20,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val ctx = app.applicationContext
     private val patcher = ApkPatcher(ctx)
+    private val bridge = AstralBridgeClient()
 
     private val _auInstalled    = MutableStateFlow(false)
     private val _auVersion      = MutableStateFlow<String?>(null)
@@ -32,6 +33,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _installedMods  = MutableStateFlow<List<InstalledMod>>(emptyList())
     private val _patchError     = MutableStateFlow<String?>(null)
     private val _hasOverlayPerm = MutableStateFlow(false)
+    private val _servers        = MutableStateFlow<List<CustomServer>>(emptyList())
 
     val auInstalled    = _auInstalled.asStateFlow()
     val auVersion      = _auVersion.asStateFlow()
@@ -44,6 +46,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val installedMods  = _installedMods.asStateFlow()
     val patchError     = _patchError.asStateFlow()
     val hasOverlayPerm = _hasOverlayPerm.asStateFlow()
+    val servers        = _servers.asStateFlow()
 
     init {
         refreshStatus()
@@ -51,9 +54,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshStatus() {
-        _auInstalled.value  = patcher.isAuInstalled()
-        _auVersion.value    = patcher.getAuVersion()
-        _isPatchedAu.value  = patcher.isPatchedInstalled()
+        _auInstalled.value    = patcher.isAuInstalled()
+        _auVersion.value      = patcher.getAuVersion()
+        _isPatchedAu.value    = patcher.isPatchedInstalled()
         _hasOverlayPerm.value = Settings.canDrawOverlays(ctx)
         AppLogger.i(TAG, "AU=${_auInstalled.value} v=${_auVersion.value} patched=${_isPatchedAu.value}")
     }
@@ -63,12 +66,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _installedMods.value = modsDir.listFiles { f -> f.extension == "dll" }
             ?.map { f ->
                 InstalledMod(
-                    id = f.nameWithoutExtension,
-                    name = f.nameWithoutExtension,
-                    author = "local",
-                    version = "?",
+                    id       = f.nameWithoutExtension,
+                    name     = f.nameWithoutExtension,
+                    author   = "local",
+                    version  = "?",
                     fileName = f.name,
-                    enabled = true
+                    enabled  = true
                 )
             } ?: emptyList()
     }
@@ -77,12 +80,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_isPatchingNow.value) return
         viewModelScope.launch {
             _isPatchingNow.value = true
-            _patchError.value = null
+            _patchError.value    = null
             try {
                 val apk = patcher.patch(
                     enabledMods = _installedMods.value.filter { it.enabled },
                     onStep = { step ->
-                        _patchStep.value = step.label
+                        _patchStep.value    = step.label
                         _patchProgress.value = step.progress
                         AppLogger.i(TAG, "Patch step: ${step.label}")
                     }
@@ -93,7 +96,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 AppLogger.e(TAG, "Patch falhou: ${e.message}")
             } finally {
                 _isPatchingNow.value = false
-                _patchStep.value = null
+                _patchStep.value     = null
             }
         }
     }
@@ -125,7 +128,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun downloadMod(mod: Mod) {
         viewModelScope.launch {
             val dest = File(ctx.filesDir, Constants.MODS_DIR).also { it.mkdirs() }
-            ModRepositoryApi.downloadMod(mod, dest) { /* progress */ }
+            ModRepositoryApi.downloadMod(mod, dest) {}
             loadInstalledMods()
         }
     }
@@ -140,5 +143,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _installedMods.value = _installedMods.value.map {
             if (it.id == mod.id) it.copy(enabled = !it.enabled) else it
         }
+    }
+
+    fun runBridgeScript(script: String): String {
+        return bridge.executeScript(script)
+    }
+
+    fun addServer(server: CustomServer) {
+        _servers.value = _servers.value + server
+    }
+
+    fun deleteServer(id: String) {
+        _servers.value = _servers.value.filter { it.id != id }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        bridge.destroy()
     }
 }
