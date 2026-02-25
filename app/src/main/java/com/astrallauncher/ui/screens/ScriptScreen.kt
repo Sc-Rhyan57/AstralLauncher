@@ -25,21 +25,21 @@ import androidx.compose.ui.unit.*
 import com.astrallauncher.MainViewModel
 import com.astrallauncher.ui.AL
 import com.astrallauncher.ui.components.*
+import com.astrallauncher.util.AppLogger
 
-private val EXAMPLE = """
--- Astral Lua API Example
-local p = AU.LocalPlayer
-function onStart()
-    p.speed = 2.0
-    print("Mod loaded for: " .. p.name)
-end
-AU.on("gameStart", onStart)
+private val EXAMPLE_SCRIPT = """-- Astral Lua Bridge Script
+-- speed(2.5)     noclip_on()    godmode()
+-- reveal()       vision(10)     tasks()
+-- kill_cooldown_on()            tp(0, 0)
+
+speed(2.5)
+reveal()
 """.trimIndent()
 
 @Composable
 fun ScriptScreen(vm: MainViewModel) {
-    val output by vm.scriptOutput.collectAsState()
-    var code by remember { mutableStateOf(TextFieldValue(EXAMPLE)) }
+    var code by remember { mutableStateOf(TextFieldValue(EXAMPLE_SCRIPT)) }
+    var output by remember { mutableStateOf<String?>(null) }
     var tab by remember { mutableIntStateOf(0) }
     val ctx = LocalContext.current
 
@@ -50,11 +50,11 @@ fun ScriptScreen(vm: MainViewModel) {
             }
             Spacer(Modifier.width(10.dp))
             Text("Script Editor", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
-            StatusChip("Lua 5.4", AL.Purple)
+            StatusChip("Lua", AL.Purple)
         }
 
         Row(Modifier.padding(horizontal = 16.dp).clip(RoundedCornerShape(10.dp)).background(AL.Surface)) {
-            listOf("Editor", "Console", "DLL Drop").forEachIndexed { i, label ->
+            listOf("Editor", "Console", "Referência").forEachIndexed { i, label ->
                 Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
                     .background(if (tab == i) AL.PurpleBg else Color.Transparent)
                     .clickable { tab = i }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
@@ -65,29 +65,39 @@ fun ScriptScreen(vm: MainViewModel) {
         Spacer(Modifier.height(12.dp))
 
         when (tab) {
-            0 -> EditorTab(code, { code = it }, { vm.executeScript(code.text) }, { code = TextFieldValue(""); vm.clearScript() }, {
+            0 -> EditorTab(code, { code = it }, {
+                val result = vm.runBridgeScript(code.text)
+                output = result
+            }, {
+                code = TextFieldValue("")
+                output = null
+            }, {
                 val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 code = TextFieldValue(cm.primaryClip?.getItemAt(0)?.text?.toString() ?: "")
             }, output)
-            1 -> ConsoleTab(output) { vm.clearScript() }
-            2 -> DllDropTab()
+            1 -> ConsoleTab(output) { output = null }
+            2 -> ReferenceTab()
         }
     }
 }
 
 @Composable
-fun EditorTab(code: TextFieldValue, onChange: (TextFieldValue) -> Unit, onRun: () -> Unit, onClear: () -> Unit, onPaste: () -> Unit, output: String?) {
+fun EditorTab(
+    code: TextFieldValue, onChange: (TextFieldValue) -> Unit,
+    onRun: () -> Unit, onClear: () -> Unit, onPaste: () -> Unit, output: String?
+) {
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(if (output != null) 0.58f else 0.72f).fillMaxWidth().padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(14.dp)).background(Color(0xFF0D1117)).border(BorderStroke(1.dp, AL.Purple.copy(0.25f)), RoundedCornerShape(14.dp))) {
+        Box(Modifier.weight(if (output != null) 0.55f else 0.72f).fillMaxWidth().padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(14.dp)).background(Color(0xFF0D1117))
+            .border(BorderStroke(1.dp, AL.Purple.copy(0.25f)), RoundedCornerShape(14.dp))) {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().background(Color(0xFF161B22)).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     listOf(AL.Error, AL.Warning, AL.Success).forEach { c ->
                         Box(Modifier.size(10.dp).clip(CircleShape).background(c)); Spacer(Modifier.width(5.dp))
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text("script.lua", color = AL.Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
-                    Text("Lua 5.4", color = AL.Purple, fontSize = 10.sp)
+                    Text("bridge_script.lua", color = AL.Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                    Text("via TCP :7777", color = AL.Purple, fontSize = 10.sp)
                 }
                 Row(Modifier.fillMaxSize()) {
                     val lines = code.text.lines().size
@@ -98,7 +108,7 @@ fun EditorTab(code: TextFieldValue, onChange: (TextFieldValue) -> Unit, onRun: (
                         BasicTextField(value = code, onValueChange = onChange, modifier = Modifier.fillMaxSize(),
                             textStyle = TextStyle(color = Color(0xFFE6EDF3), fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 20.sp),
                             cursorBrush = SolidColor(AL.Purple))
-                        if (code.text.isEmpty()) Text("-- Write Lua here...", color = AL.Muted.copy(0.4f), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                        if (code.text.isEmpty()) Text("-- Escreva comandos aqui...", color = AL.Muted.copy(0.4f), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
                     }
                 }
             }
@@ -117,7 +127,7 @@ fun EditorTab(code: TextFieldValue, onChange: (TextFieldValue) -> Unit, onRun: (
         }
         output?.let { out ->
             Spacer(Modifier.height(10.dp))
-            Column(Modifier.weight(0.28f).fillMaxWidth().padding(horizontal = 16.dp)
+            Column(Modifier.weight(0.3f).fillMaxWidth().padding(horizontal = 16.dp)
                 .clip(RoundedCornerShape(12.dp)).background(Color(0xFF0D1117))
                 .border(BorderStroke(1.dp, AL.Success.copy(0.25f)), RoundedCornerShape(12.dp)).padding(12.dp)) {
                 Text("OUTPUT", color = AL.Success, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
@@ -134,36 +144,46 @@ fun ConsoleTab(output: String?, onClear: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Console", color = AL.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
-            if (output != null) TextButton(onClick = onClear) { Text("Clear", color = AL.Muted, fontSize = 12.sp) }
+            if (output != null) TextButton(onClick = onClear) { Text("Limpar", color = AL.Muted, fontSize = 12.sp) }
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Color(0xFF0D1117)).border(BorderStroke(1.dp, AL.Border), RoundedCornerShape(14.dp)).padding(14.dp)) {
             if (output.isNullOrEmpty()) Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Outlined.Terminal, null, tint = AL.Muted.copy(0.3f), modifier = Modifier.size(48.dp))
-                Spacer(Modifier.height(12.dp)); Text("No output", color = AL.Muted.copy(0.4f), fontSize = 14.sp)
+                Spacer(Modifier.height(12.dp)); Text("Sem output", color = AL.Muted.copy(0.4f), fontSize = 14.sp)
             } else Text(output, color = Color(0xFF7EE787), fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
 }
 
 @Composable
-fun DllDropTab() {
-    Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Box(Modifier.size(80.dp).clip(RoundedCornerShape(20.dp))
-            .background(AL.GoldBg).border(BorderStroke(1.dp, AL.GoldDark.copy(0.5f)), RoundedCornerShape(20.dp)),
-            contentAlignment = Alignment.Center) { Icon(Icons.Outlined.FileUpload, null, tint = AL.Gold, modifier = Modifier.size(40.dp)) }
-        Spacer(Modifier.height(20.dp))
-        Text("DLL Injector", color = AL.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-        Spacer(Modifier.height(10.dp))
-        Text("Select a .dll (BepInEx plugin) to add it to the mod list. It will be injected into Among Us when you Patch from the Home screen.", color = AL.Muted, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = 20.dp))
-        Spacer(Modifier.height(24.dp))
-        GoldButton("Select .dll File", onClick = {}, icon = Icons.Outlined.FolderOpen, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(16.dp))
-        AstralCard(modifier = Modifier.fillMaxWidth()) {
-            Text("Supported injection formats", color = AL.MutedL, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-            Spacer(Modifier.height(8.dp))
-            listOf("BepInEx .dll plugin" to AL.Info, "MiraAPI .zip bundle" to AL.Purple, "Astral .amod package" to AL.Gold, "Lua script .lua" to AL.Success)
-                .forEach { (t, c) -> Row(Modifier.padding(vertical = 2.dp)) { Text("✦ ", color = c, fontSize = 12.sp); Text(t, color = AL.Muted, fontSize = 13.sp) } }
+fun ReferenceTab() {
+    val cmds = listOf(
+        "speed(2.5)" to "Velocidade x2.5",
+        "speed_off()" to "Restaura velocidade",
+        "noclip_on()" to "NoClip ativado",
+        "noclip_off()" to "NoClip desativado",
+        "godmode()" to "Imortalidade ON",
+        "kill_cooldown_on()" to "Kill CD = 0",
+        "kill_cooldown_off()" to "Kill CD restaurado",
+        "reveal()" to "ESP impostores (vermelho)",
+        "vision(10)" to "Visão x10",
+        "vision_off()" to "Visão restaurada",
+        "tasks()" to "Completar todas as tasks",
+        "tp(x, y)" to "Teleportar para X, Y"
+    )
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
+        item {
+            Text("Comandos disponíveis", color = AL.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+            Text("Requer AstralBridge.dll instalado no AU patcheado.", color = AL.Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
+        }
+        items(cmds) { (cmd, desc) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                .clip(RoundedCornerShape(10.dp)).background(AL.BgCard)
+                .border(BorderStroke(0.5.dp, AL.Border), RoundedCornerShape(10.dp)).padding(12.dp)) {
+                Text(cmd, color = Color(0xFF79C0FF), fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Text(desc, color = AL.Muted, fontSize = 12.sp)
+            }
         }
     }
 }
