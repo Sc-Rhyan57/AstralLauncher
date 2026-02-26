@@ -1,164 +1,218 @@
 package com.astrallauncher
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.astrallauncher.bridge.AstralBridgeClient
-import com.astrallauncher.model.CustomServer
-import com.astrallauncher.model.InstalledMod
-import com.astrallauncher.model.Mod
+import com.astrallauncher.model.*
 import com.astrallauncher.network.ModRepositoryApi
+import com.astrallauncher.service.OverlayService
 import com.astrallauncher.util.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
-
-private const val TAG = "VM"
+import java.io.FileOutputStream
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val ctx = app.applicationContext
-    private val patcher = ApkPatcher(ctx)
-    private val bridge = AstralBridgeClient()
+    private val ctx: Context get() = getApplication()
+    private val TAG = "VM"
 
-    private val _auInstalled    = MutableStateFlow(false)
-    private val _auVersion      = MutableStateFlow<String?>(null)
-    private val _isPatchedAu    = MutableStateFlow(false)
-    private val _isPatchingNow  = MutableStateFlow(false)
-    private val _patchProgress  = MutableStateFlow(0f)
-    private val _patchStep      = MutableStateFlow<String?>(null)
-    private val _overlayRunning = MutableStateFlow(false)
-    private val _remoteMods     = MutableStateFlow<List<Mod>>(emptyList())
-    private val _installedMods  = MutableStateFlow<List<InstalledMod>>(emptyList())
-    private val _patchError     = MutableStateFlow<String?>(null)
-    private val _hasOverlayPerm = MutableStateFlow(false)
-    private val _servers        = MutableStateFlow<List<CustomServer>>(emptyList())
+    val auInstalled = MutableStateFlow(false)
+    val auVersion = MutableStateFlow("?")
+    val patchedInstalled = MutableStateFlow(false)
+    val patchedVersion = MutableStateFlow("?")
+    val mods = MutableStateFlow<List<ModEntry>>(emptyList())
+    val modsLoading = MutableStateFlow(false)
+    val modsError = MutableStateFlow<String?>(null)
+    val installedMods = MutableStateFlow<List<InstalledMod>>(emptyList())
+    val servers = MutableStateFlow<List<CustomServer>>(emptyList())
+    val downloadProgress = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val statusMsg = MutableStateFlow<String?>(null)
+    val overlayActive = MutableStateFlow(false)
+    val patchState = MutableStateFlow<PatchState>(PatchState.Idle)
 
-    val auInstalled    = _auInstalled.asStateFlow()
-    val auVersion      = _auVersion.asStateFlow()
-    val isPatchedAu    = _isPatchedAu.asStateFlow()
-    val isPatchingNow  = _isPatchingNow.asStateFlow()
-    val patchProgress  = _patchProgress.asStateFlow()
-    val patchStep      = _patchStep.asStateFlow()
-    val overlayRunning = _overlayRunning.asStateFlow()
-    val remoteMods     = _remoteMods.asStateFlow()
-    val installedMods  = _installedMods.asStateFlow()
-    val patchError     = _patchError.asStateFlow()
-    val hasOverlayPerm = _hasOverlayPerm.asStateFlow()
-    val servers        = _servers.asStateFlow()
+    sealed class PatchState {
+        object Idle : PatchState()
+        data class Progress(val step: String, val pct: Int) : PatchState()
+        data class Done(val apk: File) : PatchState()
+        data class Err(val msg: String) : PatchState()
+    }
 
     init {
-        refreshStatus()
-        loadInstalledMods()
+        AppLogger.init(ctx)
+        checkGame()
+        fetchMods()
+        viewModelScope.launch { Prefs.getInstalledMods(ctx).collect { installedMods.value = it } }
+        viewModelScope.launch { Prefs.getServers(ctx).collect { servers.value = it } }
     }
 
-    fun refreshStatus() {
-        _auInstalled.value    = patcher.isAuInstalled()
-        _auVersion.value      = patcher.getAuVersion()
-        _isPatchedAu.value    = patcher.isPatchedInstalled()
-        _hasOverlayPerm.value = Settings.canDrawOverlays(ctx)
-        AppLogger.i(TAG, "AU=${_auInstalled.value} v=${_auVersion.value} patched=${_isPatchedAu.value}")
+    fun checkGame() {
+        auInstalled.value = GameHelper.isAuInstalled(ctx)
+        auVersion.value = GameHelper.getAuVersion(ctx)
+        patchedInstalled.value = GameHelper.isPatchedInstalled(ctx)
+        patchedVersion.value = GameHelper.getPatchedVersion(ctx)
+        AppLogger.i(TAG, "AU=${auInstalled.value} v=${auVersion.value} patched=${patchedInstalled.value} pv=${patchedVersion.value}")
     }
 
-    fun loadInstalledMods() {
-        val modsDir = File(ctx.filesDir, Constants.MODS_DIR).also { it.mkdirs() }
-        _installedMods.value = modsDir.listFiles { f -> f.extension == "dll" }
-            ?.map { f ->
-                InstalledMod(
-                    id       = f.nameWithoutExtension,
-                    name     = f.nameWithoutExtension,
-                    author   = "local",
-                    version  = "?",
-                    fileName = f.name,
-                    enabled  = true
-                )
-            } ?: emptyList()
+    fun fetchMods(url: String = ModRepositoryApi.REPO_URL) {
+        viewModelScope.launch {
+            modsLoading.value = true; modsError.value = null
+            val result = withContext(Dispatchers.IO) { ModRepositoryApi.fetchMods(url) }
+            result.onSuccess { mods.value = it.mods }
+                  .onFailure { modsError.value = it.message }
+            modsLoading.value = false
+        }
+    }
+
+    fun downloadAndInstall(mod: ModEntry) {
+        viewModelScope.launch {
+            val release = mod.releases.firstOrNull() ?: return@launch
+            val ext = when (release.format) {
+                ModFormat.AMOD -> ".amod"; ModFormat.LUA -> ".lua"
+                ModFormat.ZIP -> ".zip"; else -> ".dll"
+            }
+            val dest = File(ctx.filesDir, "mods/${mod.id}$ext")
+            dest.parentFile?.mkdirs()
+
+            val result = withContext(Dispatchers.IO) {
+                ModRepositoryApi.downloadFile(release.url, dest.absolutePath) { p ->
+                    downloadProgress.value = downloadProgress.value + (mod.id to p)
+                }
+            }
+            downloadProgress.value = downloadProgress.value - mod.id
+
+            result.onSuccess {
+                val file = when (release.format) {
+                    ModFormat.AMOD, ModFormat.ZIP -> {
+                        val ext2 = ApkPatcher.extractZip(dest, File(ctx.filesDir, "mods/${mod.id}_ext"))
+                        ext2.firstOrNull { it.extension == "dll" } ?: ext2.firstOrNull() ?: dest
+                    }
+                    else -> dest
+                }
+                saveMod(mod, file, release.format)
+            }.onFailure {
+                statusMsg.value = "Download falhou: ${it.message}"
+            }
+        }
+    }
+
+    private suspend fun saveMod(mod: ModEntry, file: File, format: ModFormat) {
+        val list = installedMods.value.toMutableList()
+        list.removeAll { it.id == mod.id }
+        list.add(InstalledMod(mod.id, mod.name, mod.author, mod.version, format = format, filePath = file.absolutePath))
+        Prefs.saveInstalledMods(ctx, list)
+        statusMsg.value = "${mod.name} instalado — faça o Patch para aplicar"
     }
 
     fun patchAndInstall() {
-        if (_isPatchingNow.value) return
+        val dlls = installedMods.value
+            .filter { it.enabled && it.format == ModFormat.DLL }
+            .map { File(it.filePath) }
+            .filter { it.exists() }
+
+        patchState.value = PatchState.Progress("Preparando...", 0)
+        ApkPatcher.patch(ctx, dlls, object : ApkPatcher.Callback {
+            override fun onProgress(step: String, pct: Int) {
+                viewModelScope.launch { patchState.value = PatchState.Progress(step, pct) }
+            }
+            override fun onSuccess(apk: File) {
+                viewModelScope.launch {
+                    patchState.value = PatchState.Done(apk)
+                    GameHelper.installApk(ctx, apk)
+                }
+            }
+            override fun onError(msg: String) {
+                viewModelScope.launch { patchState.value = PatchState.Err(msg) }
+            }
+        })
+    }
+
+    fun resetPatch() { patchState.value = PatchState.Idle }
+
+    fun installExternalApk(ctx: Context, uri: Uri) {
         viewModelScope.launch {
-            _isPatchingNow.value = true
-            _patchError.value    = null
+            statusMsg.value = "Preparando APK..."
             try {
-                val apk = patcher.patch(
-                    enabledMods = _installedMods.value.filter { it.enabled },
-                    onStep = { step ->
-                        _patchStep.value    = step.label
-                        _patchProgress.value = step.progress
-                        AppLogger.i(TAG, "Patch step: ${step.label}")
-                    }
-                )
-                GameHelper.installApk(ctx, apk)
+                val stream = ctx.contentResolver.openInputStream(uri) ?: return@launch
+                val dest = File(ctx.cacheDir, "ext_${System.currentTimeMillis()}.apk")
+                withContext(Dispatchers.IO) { FileOutputStream(dest).use { stream.copyTo(it) } }
+                GameHelper.installApk(ctx, dest)
+                statusMsg.value = "Siga o prompt de instalação"
             } catch (e: Exception) {
-                _patchError.value = e.message
-                AppLogger.e(TAG, "Patch falhou: ${e.message}")
-            } finally {
-                _isPatchingNow.value = false
-                _patchStep.value     = null
+                statusMsg.value = "Falha: ${e.message}"
             }
         }
     }
 
     fun launchGame() {
-        AppLogger.i(TAG, "Launching game. patched=${_isPatchedAu.value}")
-        GameHelper.launchGame(ctx)
+        AppLogger.i(TAG, "Launching game. patched=${patchedInstalled.value}")
+        GameHelper.launchPatched(ctx)
+        if (hasOverlayPermission()) startOverlay()
     }
 
-    fun toggleOverlay() {
-        if (_overlayRunning.value) {
-            com.astrallauncher.service.OverlayService.stop(ctx)
-            _overlayRunning.value = false
-        } else {
-            if (Settings.canDrawOverlays(ctx)) {
-                com.astrallauncher.service.OverlayService.start(ctx)
-                _overlayRunning.value = true
-            }
+    fun hasOverlayPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(ctx)
+
+    fun requestOverlayPermission(context: Context) {
+        context.startActivity(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        )
+    }
+
+    fun startOverlay() {
+        val active = installedMods.value.firstOrNull { it.enabled }
+        val intent = Intent(ctx, OverlayService::class.java).apply {
+            putExtra(OverlayService.EXTRA_MOD, active?.name ?: "Vanilla")
+            putExtra(OverlayService.EXTRA_AU_VER, auVersion.value)
+            putExtra(OverlayService.EXTRA_MODS_COUNT, installedMods.value.count { it.enabled })
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(intent)
+        else ctx.startService(intent)
+        overlayActive.value = true
     }
 
-    fun fetchRemoteMods() {
-        viewModelScope.launch {
-            val url = Prefs.repoUrl(ctx).first()
-            _remoteMods.value = ModRepositoryApi.fetchMods(url)
-        }
+    fun stopOverlay() {
+        ctx.stopService(Intent(ctx, OverlayService::class.java))
+        overlayActive.value = false
     }
 
-    fun downloadMod(mod: Mod) {
-        viewModelScope.launch {
-            val dest = File(ctx.filesDir, Constants.MODS_DIR).also { it.mkdirs() }
-            ModRepositoryApi.downloadMod(mod, dest) {}
-            loadInstalledMods()
-        }
+    fun addServer(s: CustomServer) = viewModelScope.launch {
+        val list = servers.value.toMutableList()
+        list.removeAll { it.id == s.id }; list.add(s)
+        Prefs.saveServers(ctx, list)
     }
 
-    fun deleteMod(mod: InstalledMod) {
-        val file = File(ctx.filesDir, "${Constants.MODS_DIR}/${mod.fileName}")
-        file.delete()
-        loadInstalledMods()
+    fun deleteServer(id: String) = viewModelScope.launch {
+        Prefs.saveServers(ctx, servers.value.filter { it.id != id })
     }
 
-    fun toggleModEnabled(mod: InstalledMod) {
-        _installedMods.value = _installedMods.value.map {
-            if (it.id == mod.id) it.copy(enabled = !it.enabled) else it
-        }
+    fun toggleMod(id: String) = viewModelScope.launch {
+        Prefs.saveInstalledMods(ctx, installedMods.value.map { if (it.id == id) it.copy(enabled = !it.enabled) else it })
+    }
+
+    fun deleteMod(id: String) = viewModelScope.launch {
+        installedMods.value.find { it.id == id }?.filePath?.let { File(it).delete() }
+        Prefs.saveInstalledMods(ctx, installedMods.value.filter { it.id != id })
     }
 
     fun runBridgeScript(script: String): String {
-        return bridge.executeScript(script)
+        val svc = com.astrallauncher.service.OverlayService.instance ?: return "Overlay não ativo — inicie o jogo e ative o overlay."
+        return try {
+            val field = svc.javaClass.getDeclaredField("bridge")
+            field.isAccessible = true
+            val client = field.get(svc) as com.astrallauncher.bridge.AstralBridgeClient
+            client.executeScript(script)
+        } catch (e: Exception) {
+            "Erro: ${e.message}"
+        }
     }
 
-    fun addServer(server: CustomServer) {
-        _servers.value = _servers.value + server
-    }
-
-    fun deleteServer(id: String) {
-        _servers.value = _servers.value.filter { it.id != id }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        bridge.destroy()
-    }
+    fun clearStatus() { statusMsg.value = null }
 }
