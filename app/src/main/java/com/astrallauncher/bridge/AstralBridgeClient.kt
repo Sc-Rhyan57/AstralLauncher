@@ -14,22 +14,22 @@ import java.util.concurrent.atomic.AtomicBoolean
 class AstralBridgeClient {
 
     companion object {
-        private const val TAG      = "AstralBridge"
+        private const val TAG = "AstralBridge"
         private const val MAX_RETRY = 60
-        private const val RETRY_MS  = 2000L
+        private const val RETRY_MS = 2000L
     }
 
-    private var socket: Socket?       = null
-    private var writer: PrintWriter?  = null
+    private var socket: Socket? = null
+    private var writer: PrintWriter? = null
     private var reader: BufferedReader? = null
     private val _connected = AtomicBoolean(false)
     val isConnected: Boolean get() = _connected.get()
 
-    var onConnected: (() -> Unit)?    = null
+    var onConnected: (() -> Unit)? = null
     var onDisconnected: (() -> Unit)? = null
     var onResponse: ((String) -> Unit)? = null
 
-    private val scope    = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var readJob: Job? = null
 
     fun connect() {
@@ -86,20 +86,20 @@ class AstralBridgeClient {
         }.getOrDefault(false)
     }
 
-    fun speedOn(mult: Double = 2.5)        = send("speed_on", value = mult)
-    fun speedOff()                          = send("speed_off")
-    fun noClipOn()                          = send("noclip_on")
-    fun noClipOff()                         = send("noclip_off")
-    fun killCooldownOn()                    = send("kill_cooldown_on")
-    fun killCooldownOff()                   = send("kill_cooldown_off")
-    fun godModeOn()                         = send("godmode_on")
-    fun godModeOff()                        = send("godmode_off")
-    fun revealOn()                          = send("reveal_on")
-    fun revealOff()                         = send("reveal_off")
-    fun visionOn(mult: Double = 10.0)       = send("vision_on", value = mult)
-    fun visionOff()                         = send("vision_off")
-    fun completeTasks()                     = send("tasks_complete")
-    fun teleport(x: Double, y: Double)      = send("teleport", x = x, y = y)
+    fun speedOn(mult: Double = 2.5) = send("speed_on", value = mult)
+    fun speedOff() = send("speed_off")
+    fun noClipOn() = send("noclip_on")
+    fun noClipOff() = send("noclip_off")
+    fun killCooldownOn() = send("kill_cooldown_on")
+    fun killCooldownOff() = send("kill_cooldown_off")
+    fun godModeOn() = send("godmode_on")
+    fun godModeOff() = send("godmode_off")
+    fun revealOn() = send("reveal_on")
+    fun revealOff() = send("reveal_off")
+    fun visionOn(mult: Double = 10.0) = send("vision_on", value = mult)
+    fun visionOff() = send("vision_off")
+    fun completeTasks() = send("tasks_complete")
+    fun teleport(x: Double, y: Double) = send("teleport", x = x, y = y)
 
     fun executeScript(script: String): String {
         val out = StringBuilder()
@@ -109,25 +109,24 @@ class AstralBridgeClient {
             if (_connected.get()) return true
             err("Não conectado — abra o AU patcheado primeiro"); return false
         }
-        fun num(line: String, prefix: String) =
-            line.removePrefix(prefix).removeSuffix(")").trim().toDoubleOrNull()
+        fun num(line: String, prefix: String) = line.removePrefix(prefix).removeSuffix(")").trim().toDoubleOrNull()
 
         for (raw in script.trim().lines()) {
             val line = raw.trim()
             if (line.isEmpty() || line.startsWith("--")) continue
             when {
-                line.startsWith("speed(")         -> if (needConn()) { val v = num(line, "speed(") ?: 2.5; speedOn(v); ok("Speed x$v") }
-                line == "speed_off()"             -> if (needConn()) { speedOff(); ok("Speed desativado") }
-                line == "noclip_on()"             -> if (needConn()) { noClipOn(); ok("NoClip ON") }
-                line == "noclip_off()"            -> if (needConn()) { noClipOff(); ok("NoClip OFF") }
-                line == "kill_cooldown_on()"      -> if (needConn()) { killCooldownOn(); ok("Kill CD zero") }
-                line == "kill_cooldown_off()"     -> if (needConn()) { killCooldownOff(); ok("Kill CD restaurado") }
-                line == "reveal()"                -> if (needConn()) { revealOn(); ok("Impostores revelados") }
-                line == "godmode()"               -> if (needConn()) { godModeOn(); ok("God Mode ON") }
-                line.startsWith("vision(")        -> if (needConn()) { val v = num(line, "vision(") ?: 10.0; visionOn(v); ok("Visão x$v") }
-                line == "vision_off()"            -> if (needConn()) { visionOff(); ok("Visão restaurada") }
-                line == "tasks()"                 -> if (needConn()) { completeTasks(); ok("Tasks completadas") }
-                line.startsWith("tp(")            -> {
+                line.startsWith("speed(") -> if (needConn()) { val v = num(line,"speed(") ?: 2.5; speedOn(v); ok("Speed x$v") }
+                line == "speed_off()" -> if (needConn()) { speedOff(); ok("Speed desativado") }
+                line == "noclip_on()" -> if (needConn()) { noClipOn(); ok("NoClip ON") }
+                line == "noclip_off()" -> if (needConn()) { noClipOff(); ok("NoClip OFF") }
+                line == "kill_cooldown_on()" -> if (needConn()) { killCooldownOn(); ok("Kill CD zero") }
+                line == "kill_cooldown_off()" -> if (needConn()) { killCooldownOff(); ok("Kill CD restaurado") }
+                line == "reveal()" -> if (needConn()) { revealOn(); ok("Impostores revelados") }
+                line == "godmode()" -> if (needConn()) { godModeOn(); ok("God Mode ON") }
+                line.startsWith("vision(") -> if (needConn()) { val v = num(line,"vision(") ?: 10.0; visionOn(v); ok("Visão x$v") }
+                line == "vision_off()" -> if (needConn()) { visionOff(); ok("Visão restaurada") }
+                line == "tasks()" -> if (needConn()) { completeTasks(); ok("Tasks completadas") }
+                line.startsWith("tp(") -> {
                     val args = line.removePrefix("tp(").removeSuffix(")").split(",")
                     val px = args.getOrNull(0)?.trim()?.toDoubleOrNull()
                     val py = args.getOrNull(1)?.trim()?.toDoubleOrNull()
